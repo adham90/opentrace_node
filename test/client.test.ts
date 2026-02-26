@@ -129,7 +129,7 @@ describe("Client", () => {
     const headers = testServer.received[0].headers;
     expect(headers.authorization).toBe("Bearer test-key");
     expect(headers["content-type"]).toBe("application/json");
-    expect(headers["user-agent"]).toContain("@opentrace/node");
+    expect(headers["user-agent"]).toContain("@opentrace-sdk/node");
   });
 
   it("compresses payloads when enabled and above threshold", async () => {

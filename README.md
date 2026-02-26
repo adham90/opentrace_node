@@ -1,4 +1,4 @@
-# @opentrace/node
+# @opentrace-sdk/node
 
 [![CI](https://img.shields.io/github/actions/workflow/status/adham90/opentrace_node/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/adham90/opentrace_node/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -51,13 +51,13 @@ Async structured log forwarding for Node.js backends. Ships logs, errors, events
 ## Install
 
 ```bash
-npm install @opentrace/node
+npm install @opentrace-sdk/node
 ```
 
 ## Quick Start
 
 ```typescript
-import OpenTrace from '@opentrace/node';
+import OpenTrace from '@opentrace-sdk/node';
 
 OpenTrace.init({
   endpoint: 'https://your-opentrace-server.com',
@@ -87,7 +87,7 @@ await OpenTrace.shutdown();
 
 ```typescript
 import express from 'express';
-import OpenTrace from '@opentrace/node';
+import OpenTrace from '@opentrace-sdk/node';
 
 const app = express();
 app.use(OpenTrace.middleware.express());
@@ -106,7 +106,7 @@ Each request automatically captures: method, path, status code, duration, trace 
 
 ```typescript
 import Fastify from 'fastify';
-import OpenTrace from '@opentrace/node';
+import OpenTrace from '@opentrace-sdk/node';
 
 const app = Fastify();
 app.register(OpenTrace.middleware.fastify());
@@ -116,7 +116,7 @@ app.register(OpenTrace.middleware.fastify());
 
 ```typescript
 import { Hono } from 'hono';
-import OpenTrace from '@opentrace/node';
+import OpenTrace from '@opentrace-sdk/node';
 
 const app = new Hono();
 app.use('*', OpenTrace.middleware.hono());
@@ -295,7 +295,7 @@ This is the **Node.js server-side client**. OpenTrace has clients for every laye
 | Client | Platform | Repo |
 |---|---|---|
 | **OpenTrace Server** | Go — self-hosted observability | [adham90/opentrace](https://github.com/adham90/opentrace) |
-| **@opentrace/node** | Node.js backends | [adham90/opentrace_node](https://github.com/adham90/opentrace_node) |
+| **@opentrace-sdk/node** | Node.js backends | [adham90/opentrace_node](https://github.com/adham90/opentrace_node) |
 | **opentrace** (gem) | Ruby / Rails backends | [adham90/opentrace_ruby](https://github.com/adham90/opentrace_ruby) |
 | **opentrace.js** | Browser error tracking | [adham90/opentrace_browser](https://github.com/adham90/opentrace_browser) |
 

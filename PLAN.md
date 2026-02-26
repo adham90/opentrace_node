@@ -10,7 +10,7 @@
 ## Project
 
 ```
-Name:         @opentrace/node
+Name:         @opentrace-sdk/node
 Version:      0.1.0
 Language:     TypeScript (strict mode)
 Target:       Node.js >= 18
@@ -86,7 +86,7 @@ test/
 ## Public API
 
 ```typescript
-import OpenTrace from '@opentrace/node';
+import OpenTrace from '@opentrace-sdk/node';
 
 // Lifecycle
 OpenTrace.init(config)               // Initialize with endpoint, apiKey, service
@@ -205,7 +205,7 @@ All three clients (Ruby, Browser, Node) send identical payload structures to the
 
 ## Future Work
 
-- **npm publish** — publish `@opentrace/node` to npm registry
+- **npm publish** — publish `@opentrace-sdk/node` to npm registry
 - **Prisma plugin** — auto-instrument Prisma queries via middleware
 - **Knex/pg plugin** — auto-instrument via query events
 - **`diagnostics_channel`** — native Node.js instrumentation (Node 19+)

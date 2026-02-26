@@ -185,7 +185,7 @@ export class Client {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.config.apiKey}`,
-      "User-Agent": "@opentrace/node 0.1.0",
+      "User-Agent": "@opentrace-sdk/node 0.1.0",
       "X-Batch-ID": randomUUID(),
     };
 
