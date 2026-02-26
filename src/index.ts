@@ -1,13 +1,20 @@
 import { createHash } from 'node:crypto';
 import { type OpenTraceConfig, type ResolvedConfig, clearLevelCache, isLevelEnabled, resolveConfig, validateConfig } from './config.js';
 import { Client } from './client.js';
-import type { DeferredError, DeferredEvent, DeferredLog, ErrorCause } from './types.js';
+import { getContext } from './context.js';
+import type { DeferredEntry, DeferredError, DeferredEvent, DeferredLog, ErrorCause } from './types.js';
 import type { StatsSnapshot } from './stats.js';
+import { createExpressMiddleware, type OpenTraceInternals } from './middleware/express.js';
+import { createFastifyPlugin } from './middleware/fastify.js';
+import { createHonoMiddleware } from './middleware/hono.js';
+import { generateSpanId } from './trace-context.js';
 
 export type { OpenTraceConfig } from './config.js';
 export type { LogLevel } from './config.js';
 export type { Payload, DeferredEntry, RequestSummary } from './types.js';
 export type { StatsSnapshot } from './stats.js';
+export { getContext } from './context.js';
+export { RequestCollector } from './request-collector.js';
 
 let initialized = false;
 let config: ResolvedConfig | null = null;
@@ -20,6 +27,21 @@ function debugLog(...args: unknown[]): void {
   if (config?.debug) {
     console.debug('[OpenTrace]', ...args);
   }
+}
+
+function getInternals(): OpenTraceInternals {
+  return {
+    enabled: () => initialized && enabled,
+    config: () => config ? {
+      ignorePaths: config.ignorePaths,
+      requestSummary: config.requestSummary,
+      timeline: config.timeline,
+      timelineMaxEvents: config.timelineMaxEvents,
+    } : null,
+    enqueue: (entry) => client?.enqueue(entry),
+    sample: (req) => client?.sampler.sample(req) ?? false,
+    recordSampledOut: () => { if (client) client.stats.sampledOut++; },
+  };
 }
 
 const OpenTrace = {
@@ -41,7 +63,6 @@ const OpenTrace = {
     initialized = true;
     enabled = true;
 
-    // Flush on process exit
     beforeExitHandler = () => { client?.flush(); };
     process.on('beforeExit', beforeExitHandler);
 
@@ -81,6 +102,7 @@ const OpenTrace = {
       if (!initialized || !enabled || !config || !client) return;
       if (!isLevelEnabled(level, config)) return;
 
+      const ctx = getContext();
       const entry: DeferredLog = {
         kind: 'log',
         ts: Date.now(),
@@ -88,10 +110,10 @@ const OpenTrace = {
         message,
         metadata,
         context: resolveContext(),
-        requestId: null,
-        traceId: null,
-        spanId: null,
-        parentSpanId: null,
+        requestId: ctx?.requestId ?? null,
+        traceId: ctx?.traceId ?? null,
+        spanId: ctx?.spanId ?? null,
+        parentSpanId: ctx?.parentSpanId ?? null,
       };
 
       client.enqueue(entry);
@@ -124,6 +146,7 @@ const OpenTrace = {
       const fingerprint = computeFingerprint(exceptionClass, origin);
       const causes = isError ? walkCauses(err) : [];
 
+      const ctx = getContext();
       const entry: DeferredError = {
         kind: 'error',
         ts: Date.now(),
@@ -134,10 +157,10 @@ const OpenTrace = {
         causes,
         metadata,
         context: resolveContext(),
-        requestId: null,
-        traceId: null,
-        spanId: null,
-        parentSpanId: null,
+        requestId: ctx?.requestId ?? null,
+        traceId: ctx?.traceId ?? null,
+        spanId: ctx?.spanId ?? null,
+        parentSpanId: ctx?.parentSpanId ?? null,
       };
 
       client.enqueue(entry);
@@ -150,6 +173,7 @@ const OpenTrace = {
     try {
       if (!initialized || !enabled || !config || !client) return;
 
+      const ctx = getContext();
       const entry: DeferredEvent = {
         kind: 'event',
         ts: Date.now(),
@@ -157,13 +181,73 @@ const OpenTrace = {
         message,
         metadata,
         context: resolveContext(),
-        requestId: null,
-        traceId: null,
-        spanId: null,
-        parentSpanId: null,
+        requestId: ctx?.requestId ?? null,
+        traceId: ctx?.traceId ?? null,
+        spanId: ctx?.spanId ?? null,
+        parentSpanId: ctx?.parentSpanId ?? null,
       };
 
       client.enqueue(entry);
+    } catch {
+      // Never throw
+    }
+  },
+
+  trace<T>(operation: string, fn: () => T): T {
+    const ctx = getContext();
+    const parentSpanId = ctx?.spanId ?? null;
+    const spanId = generateSpanId();
+    const start = performance.now();
+
+    if (ctx) ctx.spanId = spanId;
+
+    try {
+      const result = fn();
+
+      // Handle async functions
+      if (result instanceof Promise) {
+        return result.then(
+          (val) => {
+            finishSpan(operation, start, ctx, parentSpanId);
+            return val;
+          },
+          (err) => {
+            finishSpan(operation, start, ctx, parentSpanId);
+            throw err;
+          },
+        ) as T;
+      }
+
+      finishSpan(operation, start, ctx, parentSpanId);
+      return result;
+    } catch (err) {
+      finishSpan(operation, start, ctx, parentSpanId);
+      throw err;
+    }
+  },
+
+  addBreadcrumb(crumb: { category?: string; message: string; data?: Record<string, unknown>; level?: string }): void {
+    try {
+      const ctx = getContext();
+      ctx?.breadcrumbs.add(crumb.category ?? 'custom', crumb.message, crumb.data, crumb.level);
+    } catch {
+      // Never throw
+    }
+  },
+
+  setTransactionName(name: string): void {
+    const ctx = getContext();
+    if (ctx) ctx.transactionName = name;
+  },
+
+  recordSql(name: string, durationMs: number, sql?: string): void {
+    try {
+      const ctx = getContext();
+      if (ctx) {
+        ctx.sqlCount += 1;
+        ctx.sqlTotalMs += durationMs;
+        ctx.collector?.recordSql(name, durationMs, sql);
+      }
     } catch {
       // Never throw
     }
@@ -185,6 +269,18 @@ const OpenTrace = {
     await client?.flush();
   },
 
+  middleware: {
+    express() {
+      return createExpressMiddleware(getInternals());
+    },
+    fastify() {
+      return createFastifyPlugin(getInternals());
+    },
+    hono() {
+      return createHonoMiddleware(getInternals());
+    },
+  },
+
   /** @internal — exposed for testing */
   _client(): Client | null {
     return client;
@@ -204,6 +300,41 @@ const OpenTrace = {
 function resolveContext(): Record<string, unknown> | null {
   if (Object.keys(globalContext).length === 0) return null;
   return { ...globalContext };
+}
+
+function finishSpan(
+  operation: string,
+  start: number,
+  ctx: ReturnType<typeof getContext>,
+  parentSpanId: string | null,
+): void {
+  const durationMs = performance.now() - start;
+  ctx?.collector?.recordSpan(operation, durationMs);
+  if (ctx) ctx.spanId = parentSpanId ?? ctx.spanId;
+
+  // Log the span completion
+  try {
+    if (initialized && enabled && client && config) {
+      const entry: DeferredLog = {
+        kind: 'log',
+        ts: Date.now(),
+        level: 'info',
+        message: `span: ${operation} ${Math.round(durationMs)}ms`,
+        metadata: {
+          span_operation: operation,
+          span_duration_ms: Math.round(durationMs * 100) / 100,
+        },
+        context: resolveContext(),
+        requestId: ctx?.requestId ?? null,
+        traceId: ctx?.traceId ?? null,
+        spanId: ctx?.spanId ?? null,
+        parentSpanId,
+      };
+      client.enqueue(entry);
+    }
+  } catch {
+    // Never throw
+  }
 }
 
 function cleanStack(stack: string): string {
