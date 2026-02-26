@@ -5,9 +5,7 @@ let originalLog: LogFn | null = null;
 let originalWarn: LogFn | null = null;
 let originalError: LogFn | null = null;
 
-interface ConsoleForwarder {
-  (level: string, message: string, metadata: Record<string, unknown>): void;
-}
+type ConsoleForwarder = (level: string, message: string, metadata: Record<string, unknown>) => void;
 
 let forwarder: ConsoleForwarder | null = null;
 
@@ -20,19 +18,19 @@ export function installConsoleCapture(forward: ConsoleForwarder): void {
   originalWarn = console.warn;
   originalError = console.error;
 
-  console.log = function (...args: unknown[]) {
-    originalLog!.apply(console, args);
-    safeForward('info', args);
+  console.log = (...args: unknown[]) => {
+    originalLog?.apply(console, args);
+    safeForward("info", args);
   };
 
-  console.warn = function (...args: unknown[]) {
-    originalWarn!.apply(console, args);
-    safeForward('warn', args);
+  console.warn = (...args: unknown[]) => {
+    originalWarn?.apply(console, args);
+    safeForward("warn", args);
   };
 
-  console.error = function (...args: unknown[]) {
-    originalError!.apply(console, args);
-    safeForward('error', args);
+  console.error = (...args: unknown[]) => {
+    originalError?.apply(console, args);
+    safeForward("error", args);
   };
 }
 
@@ -51,15 +49,15 @@ export function uninstallConsoleCapture(): void {
 function safeForward(level: string, args: unknown[]): void {
   try {
     if (!forwarder) return;
-    const message = args.map(formatArg).join(' ');
-    forwarder(level, message, { source: 'console' });
+    const message = args.map(formatArg).join(" ");
+    forwarder(level, message, { source: "console" });
   } catch {
     // Never throw
   }
 }
 
 function formatArg(arg: unknown): string {
-  if (typeof arg === 'string') return arg;
+  if (typeof arg === "string") return arg;
   if (arg instanceof Error) return arg.stack ?? arg.message;
   try {
     return JSON.stringify(arg);

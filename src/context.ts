@@ -1,6 +1,6 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { BreadcrumbBuffer } from './breadcrumbs.js';
-import type { RequestCollector } from './request-collector.js';
+import { AsyncLocalStorage } from "node:async_hooks";
+import { BreadcrumbBuffer } from "./breadcrumbs.js";
+import type { RequestCollector } from "./request-collector.js";
 
 export interface RequestContext {
   requestId: string;
@@ -25,9 +25,9 @@ export function getContext(): RequestContext | undefined {
 
 export function createRequestContext(overrides: Partial<RequestContext> = {}): RequestContext {
   return {
-    requestId: '',
-    traceId: '',
-    spanId: '',
+    requestId: "",
+    traceId: "",
+    spanId: "",
     parentSpanId: null,
     transactionName: null,
     sqlCount: 0,

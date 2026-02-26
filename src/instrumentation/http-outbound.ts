@@ -1,12 +1,12 @@
-import http from 'node:http';
-import https from 'node:https';
-import { getContext } from '../context.js';
-import { buildTraceparent } from '../trace-context.js';
+import http from "node:http";
+import https from "node:https";
+import { getContext } from "../context.js";
+import { buildTraceparent } from "../trace-context.js";
 
 let installed = false;
 let originalHttpRequest: typeof http.request | null = null;
 let originalHttpsRequest: typeof https.request | null = null;
-let ownEndpoint = '';
+let ownEndpoint = "";
 
 export function installHttpTracking(endpoint: string): void {
   if (installed) return;
@@ -18,11 +18,13 @@ export function installHttpTracking(endpoint: string): void {
 
   // biome-ignore lint/suspicious/noExplicitAny: must match Node.js overloaded http.request signature
   http.request = function patchedHttpRequest(...args: any[]) {
+    // biome-ignore lint/style/noNonNullAssertion: guaranteed non-null after installHttpTracking sets it
     return wrapRequest(originalHttpRequest!, args);
   } as typeof http.request;
 
   // biome-ignore lint/suspicious/noExplicitAny: must match Node.js overloaded https.request signature
   https.request = function patchedHttpsRequest(...args: any[]) {
+    // biome-ignore lint/style/noNonNullAssertion: guaranteed non-null after installHttpTracking sets it
     return wrapRequest(originalHttpsRequest!, args);
   } as typeof https.request;
 }
@@ -51,32 +53,32 @@ function wrapRequest(original: (...args: any[]) => http.ClientRequest, args: any
   // Inject trace headers if we have context
   if (ctx) {
     const headers = options.headers ?? {};
-    if (ctx.traceId) headers['x-trace-id'] = ctx.traceId;
-    if (ctx.requestId) headers['x-request-id'] = ctx.requestId;
+    if (ctx.traceId) headers["x-trace-id"] = ctx.traceId;
+    if (ctx.requestId) headers["x-request-id"] = ctx.requestId;
     if (ctx.traceId && ctx.spanId) {
       headers.traceparent = buildTraceparent(ctx.traceId, ctx.spanId);
     }
 
     // Mutate options if it's an object
-    if (typeof args[0] === 'object' && args[0] !== null && !(args[0] instanceof URL)) {
+    if (typeof args[0] === "object" && args[0] !== null && !(args[0] instanceof URL)) {
       args[0].headers = { ...args[0].headers, ...headers };
     }
   }
 
   const start = performance.now();
-  const method = options.method ?? 'GET';
-  const host = options.hostname ?? options.host ?? 'unknown';
+  const method = options.method ?? "GET";
+  const host = options.hostname ?? options.host ?? "unknown";
 
   const req = original.apply(null, args);
 
-  req.on('response', (res: http.IncomingMessage) => {
+  req.on("response", (res: http.IncomingMessage) => {
     const durationMs = performance.now() - start;
     if (ctx?.collector) {
       ctx.collector.recordHttp(method, host, res.statusCode ?? 0, durationMs);
     }
   });
 
-  req.on('error', () => {
+  req.on("error", () => {
     const durationMs = performance.now() - start;
     if (ctx?.collector) {
       ctx.collector.recordHttp(method, host, 0, durationMs);
@@ -95,16 +97,16 @@ interface ParsedOptions {
 
 // biome-ignore lint/suspicious/noExplicitAny: parsing flexible Node.js http.request arguments
 function parseOptions(first: any): ParsedOptions {
-  if (typeof first === 'string') {
+  if (typeof first === "string") {
     try {
       const url = new URL(first);
-      return { hostname: url.hostname, method: 'GET' };
+      return { hostname: url.hostname, method: "GET" };
     } catch {
       return {};
     }
   }
   if (first instanceof URL) {
-    return { hostname: first.hostname, method: 'GET' };
+    return { hostname: first.hostname, method: "GET" };
   }
   return first ?? {};
 }
@@ -113,7 +115,7 @@ function isOwnRequest(options: ParsedOptions): boolean {
   if (!ownEndpoint) return false;
   try {
     const url = new URL(ownEndpoint);
-    const host = options.hostname ?? options.host ?? '';
+    const host = options.hostname ?? options.host ?? "";
     return host === url.hostname;
   } catch {
     return false;

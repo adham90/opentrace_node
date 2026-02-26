@@ -1,41 +1,41 @@
-import type { ResolvedConfig } from './config.js';
-import type { DeferredEntry, DeferredRequest, Payload } from './types.js';
+import type { ResolvedConfig } from "./config.js";
+import type { DeferredEntry, DeferredRequest, Payload } from "./types.js";
 
 export function materialize(entry: DeferredEntry, config: ResolvedConfig): Payload {
   switch (entry.kind) {
-    case 'log':
+    case "log":
       return materializeLog(entry, config);
-    case 'error':
+    case "error":
       return materializeError(entry, config);
-    case 'event':
+    case "event":
       return materializeEvent(entry, config);
-    case 'request':
+    case "request":
       return materializeRequest(entry, config);
   }
 }
 
-function materializeLog(entry: DeferredEntry & { kind: 'log' }, config: ResolvedConfig): Payload {
+function materializeLog(entry: DeferredEntry & { kind: "log" }, config: ResolvedConfig): Payload {
   const metadata = mergeContext(entry.metadata, entry.context, config);
   const payload = buildBase(entry.ts, entry.level.toUpperCase(), entry.message, metadata, config);
   assignTraceFields(payload, entry);
   return payload;
 }
 
-function materializeError(entry: DeferredEntry & { kind: 'error' }, config: ResolvedConfig): Payload {
+function materializeError(entry: DeferredEntry & { kind: "error" }, config: ResolvedConfig): Payload {
   const metadata = mergeContext(entry.metadata, entry.context, config);
   if (entry.stack) metadata.stack_trace = entry.stack;
   if (entry.causes.length > 0) metadata.exception_causes = entry.causes;
 
-  const payload = buildBase(entry.ts, 'ERROR', entry.message, metadata, config);
+  const payload = buildBase(entry.ts, "ERROR", entry.message, metadata, config);
   payload.exception_class = entry.exceptionClass;
   payload.error_fingerprint = entry.fingerprint;
   assignTraceFields(payload, entry);
   return payload;
 }
 
-function materializeEvent(entry: DeferredEntry & { kind: 'event' }, config: ResolvedConfig): Payload {
+function materializeEvent(entry: DeferredEntry & { kind: "event" }, config: ResolvedConfig): Payload {
   const metadata = mergeContext(entry.metadata, entry.context, config);
-  const payload = buildBase(entry.ts, 'INFO', entry.message, metadata, config);
+  const payload = buildBase(entry.ts, "INFO", entry.message, metadata, config);
   payload.event_type = entry.eventType;
   assignTraceFields(payload, entry);
   return payload;
@@ -106,7 +106,7 @@ function mergeContext(
 
   // Static context from config
   if (config.context) {
-    const ctx = typeof config.context === 'function' ? safeCall(config.context) : config.context;
+    const ctx = typeof config.context === "function" ? safeCall(config.context) : config.context;
     if (ctx) Object.assign(result, ctx);
   }
 
@@ -130,10 +130,10 @@ function assignTraceFields(
 }
 
 function requestLevel(status: number, error: unknown): string {
-  if (error) return 'ERROR';
-  if (status >= 500) return 'ERROR';
-  if (status >= 400) return 'WARN';
-  return 'INFO';
+  if (error) return "ERROR";
+  if (status >= 500) return "ERROR";
+  if (status >= 400) return "WARN";
+  return "INFO";
 }
 
 function safeCall<T>(fn: () => T): T | null {
@@ -152,20 +152,26 @@ export function fitPayload(payload: Payload, maxBytes: number): Payload | null {
   const p = { ...payload, metadata: { ...payload.metadata } };
 
   const steps: (() => void)[] = [
-    () => delete p.metadata.stack_trace,
-    () => delete p.metadata.params,
-    () => delete p.metadata.job_arguments,
     () => {
-      if (typeof p.metadata.sql === 'string') p.metadata.sql = p.metadata.sql.slice(0, 200);
+      p.metadata.stack_trace = undefined;
     },
     () => {
-      if (typeof p.metadata.exception_message === 'string')
+      p.metadata.params = undefined;
+    },
+    () => {
+      p.metadata.job_arguments = undefined;
+    },
+    () => {
+      if (typeof p.metadata.sql === "string") p.metadata.sql = p.metadata.sql.slice(0, 200);
+    },
+    () => {
+      if (typeof p.metadata.exception_message === "string")
         p.metadata.exception_message = p.metadata.exception_message.slice(0, 200);
     },
     () => {
       if (p.request_summary) {
         p.request_summary = { ...p.request_summary };
-        delete p.request_summary.timeline;
+        p.request_summary.timeline = undefined;
       }
     },
   ];
@@ -180,5 +186,5 @@ export function fitPayload(payload: Payload, maxBytes: number): Payload | null {
 }
 
 function jsonSize(obj: unknown): number {
-  return Buffer.byteLength(JSON.stringify(obj), 'utf8');
+  return Buffer.byteLength(JSON.stringify(obj), "utf8");
 }

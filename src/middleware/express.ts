@@ -1,8 +1,8 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { asyncLocalStorage, createRequestContext } from '../context.js';
-import { RequestCollector } from '../request-collector.js';
-import { extractRequestInfo, extractTraceInfo, isIgnoredPath } from './common.js';
-import type { DeferredRequest } from '../types.js';
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { asyncLocalStorage, createRequestContext } from "../context.js";
+import { RequestCollector } from "../request-collector.js";
+import type { DeferredRequest } from "../types.js";
+import { extractRequestInfo, extractTraceInfo, isIgnoredPath } from "./common.js";
 
 export interface OpenTraceInternals {
   enabled(): boolean;
@@ -21,26 +21,34 @@ type NextFunction = (err?: unknown) => void;
 
 export function createExpressMiddleware(internals: OpenTraceInternals) {
   return function opentraceMiddleware(req: IncomingMessage, res: ServerResponse, next: NextFunction): void {
-    if (!internals.enabled()) return next();
+    if (!internals.enabled()) {
+      next();
+      return;
+    }
 
     const cfg = internals.config();
-    if (!cfg) return next();
+    if (!cfg) {
+      next();
+      return;
+    }
 
     const info = extractRequestInfo(req);
 
-    if (isIgnoredPath(info.path, cfg.ignorePaths)) return next();
+    if (isIgnoredPath(info.path, cfg.ignorePaths)) {
+      next();
+      return;
+    }
 
     if (!internals.sample(req)) {
       internals.recordSampledOut();
-      return next();
+      next();
+      return;
     }
 
     const traceInfo = extractTraceInfo(req);
     const start = performance.now();
 
-    const collector = cfg.requestSummary
-      ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents)
-      : null;
+    const collector = cfg.requestSummary ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents) : null;
 
     const store = createRequestContext({
       requestId: info.requestId,
@@ -64,7 +72,7 @@ export function createExpressMiddleware(internals: OpenTraceInternals) {
         const durationMs = performance.now() - start;
 
         const entry: DeferredRequest = {
-          kind: 'request',
+          kind: "request",
           started: Date.now() - durationMs,
           finished: Date.now(),
           method: info.method,

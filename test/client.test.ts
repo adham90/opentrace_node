@@ -1,16 +1,16 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
-import { gunzipSync } from 'node:zlib';
-import { resolveConfig } from '../src/config.js';
-import { Client } from '../src/client.js';
-import type { DeferredLog } from '../src/types.js';
+import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
+import { gunzipSync } from "node:zlib";
+import { afterEach, describe, expect, it } from "vitest";
+import { Client } from "../src/client.js";
+import { resolveConfig } from "../src/config.js";
+import type { DeferredLog } from "../src/types.js";
 
 function makeEntry(overrides: Partial<DeferredLog> = {}): DeferredLog {
   return {
-    kind: 'log',
+    kind: "log",
     ts: Date.now(),
-    level: 'info',
-    message: 'test message',
+    level: "info",
+    message: "test message",
     metadata: {},
     context: null,
     requestId: null,
@@ -33,19 +33,19 @@ async function createTestServer(): Promise<TestServer> {
   let responseStatus = 200;
   let responseHeaders: Record<string, string> = {};
 
-  const received: TestServer['received'] = [];
+  const received: TestServer["received"] = [];
 
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
       let body: unknown;
       const raw = Buffer.concat(chunks);
 
-      if (req.headers['content-encoding'] === 'gzip') {
-        body = JSON.parse(gunzipSync(raw).toString('utf8'));
+      if (req.headers["content-encoding"] === "gzip") {
+        body = JSON.parse(gunzipSync(raw).toString("utf8"));
       } else {
-        body = JSON.parse(raw.toString('utf8'));
+        body = JSON.parse(raw.toString("utf8"));
       }
 
       received.push({ body, headers: req.headers });
@@ -80,8 +80,8 @@ async function createTestServer(): Promise<TestServer> {
 function makeClient(port: number, overrides: Record<string, unknown> = {}): Client {
   const config = resolveConfig({
     endpoint: `http://127.0.0.1:${port}`,
-    apiKey: 'test-key',
-    service: 'test-svc',
+    apiKey: "test-key",
+    service: "test-svc",
     flushInterval: 60000, // manual flush in tests
     compression: false,
     maxRetries: 0,
@@ -102,24 +102,24 @@ afterEach(async () => {
   testServer = null;
 });
 
-describe('Client', () => {
-  it('enqueues and flushes entries to the server', async () => {
+describe("Client", () => {
+  it("enqueues and flushes entries to the server", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
-    testClient.enqueue(makeEntry({ message: 'hello' }));
-    testClient.enqueue(makeEntry({ message: 'world' }));
+    testClient.enqueue(makeEntry({ message: "hello" }));
+    testClient.enqueue(makeEntry({ message: "world" }));
 
     await testClient.flush();
 
     expect(testServer.received).toHaveLength(1);
     const batch = testServer.received[0].body as unknown[];
     expect(batch).toHaveLength(2);
-    expect((batch[0] as Record<string, unknown>).message).toBe('hello');
-    expect((batch[1] as Record<string, unknown>).message).toBe('world');
+    expect((batch[0] as Record<string, unknown>).message).toBe("hello");
+    expect((batch[1] as Record<string, unknown>).message).toBe("world");
   });
 
-  it('sends correct headers', async () => {
+  it("sends correct headers", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
@@ -127,28 +127,28 @@ describe('Client', () => {
     await testClient.flush();
 
     const headers = testServer.received[0].headers;
-    expect(headers.authorization).toBe('Bearer test-key');
-    expect(headers['content-type']).toBe('application/json');
-    expect(headers['user-agent']).toContain('@opentrace/node');
+    expect(headers.authorization).toBe("Bearer test-key");
+    expect(headers["content-type"]).toBe("application/json");
+    expect(headers["user-agent"]).toContain("@opentrace/node");
   });
 
-  it('compresses payloads when enabled and above threshold', async () => {
+  it("compresses payloads when enabled and above threshold", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port, {
       compression: true,
       compressionThreshold: 10,
     });
 
-    testClient.enqueue(makeEntry({ message: 'a'.repeat(200) }));
+    testClient.enqueue(makeEntry({ message: "a".repeat(200) }));
     await testClient.flush();
 
     expect(testServer.received).toHaveLength(1);
     // Server handler decompresses, so we can check the headers
     const headers = testServer.received[0].headers;
-    expect(headers['content-encoding']).toBe('gzip');
+    expect(headers["content-encoding"]).toBe("gzip");
   });
 
-  it('tracks stats correctly', async () => {
+  it("tracks stats correctly", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
@@ -163,7 +163,7 @@ describe('Client', () => {
     expect(stats.bytesSent).toBeGreaterThan(0);
   });
 
-  it('drops entries when queue is full', async () => {
+  it("drops entries when queue is full", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
@@ -176,7 +176,7 @@ describe('Client', () => {
     expect(testClient.stats.droppedQueueFull).toBe(10);
   });
 
-  it('does not enqueue after shutdown', async () => {
+  it("does not enqueue after shutdown", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
@@ -186,7 +186,7 @@ describe('Client', () => {
     expect(testClient.queueSize).toBe(0);
   });
 
-  it('handles server errors gracefully', async () => {
+  it("handles server errors gracefully", async () => {
     testServer = await createTestServer();
     testServer.respondWith(500);
     testClient = makeClient(testServer.port, { maxRetries: 0 });
@@ -199,7 +199,7 @@ describe('Client', () => {
     expect(stats.droppedError).toBe(1);
   });
 
-  it('suspends on 401 auth failure', async () => {
+  it("suspends on 401 auth failure", async () => {
     testServer = await createTestServer();
     testServer.respondWith(401);
     testClient = makeClient(testServer.port);
@@ -211,7 +211,7 @@ describe('Client', () => {
     expect(testClient.isHealthy).toBe(false);
   });
 
-  it('handles rate limiting (429)', async () => {
+  it("handles rate limiting (429)", async () => {
     testServer = await createTestServer();
     testServer.respondWith(429);
     testClient = makeClient(testServer.port);
@@ -222,35 +222,35 @@ describe('Client', () => {
     expect(testClient.stats.rateLimited).toBe(1);
   });
 
-  it('respects beforeSend filter', async () => {
+  it("respects beforeSend filter", async () => {
     testServer = await createTestServer();
     const config = resolveConfig({
       endpoint: `http://127.0.0.1:${testServer.port}`,
-      apiKey: 'test-key',
-      service: 'test-svc',
+      apiKey: "test-key",
+      service: "test-svc",
       flushInterval: 60000,
       compression: false,
       maxRetries: 0,
       beforeSend: (payload) => {
-        if ((payload as Record<string, unknown>).message === 'drop me') return null;
+        if ((payload as Record<string, unknown>).message === "drop me") return null;
         return payload;
       },
     });
     testClient = new Client(config);
     testClient.start();
 
-    testClient.enqueue(makeEntry({ message: 'drop me' }));
-    testClient.enqueue(makeEntry({ message: 'keep me' }));
+    testClient.enqueue(makeEntry({ message: "drop me" }));
+    testClient.enqueue(makeEntry({ message: "keep me" }));
     await testClient.flush();
 
     expect(testServer.received).toHaveLength(1);
     const batch = testServer.received[0].body as unknown[];
     expect(batch).toHaveLength(1);
-    expect((batch[0] as Record<string, unknown>).message).toBe('keep me');
+    expect((batch[0] as Record<string, unknown>).message).toBe("keep me");
     expect(testClient.stats.droppedFiltered).toBe(1);
   });
 
-  it('flushes remaining entries on shutdown', async () => {
+  it("flushes remaining entries on shutdown", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port);
 
@@ -264,7 +264,7 @@ describe('Client', () => {
     expect(allEntries).toHaveLength(5);
   });
 
-  it('splits oversized batches', async () => {
+  it("splits oversized batches", async () => {
     testServer = await createTestServer();
     testClient = makeClient(testServer.port, {
       batchSize: 100,
@@ -272,16 +272,13 @@ describe('Client', () => {
     });
 
     for (let i = 0; i < 10; i++) {
-      testClient.enqueue(makeEntry({ message: `message-${i}-${'x'.repeat(50)}` }));
+      testClient.enqueue(makeEntry({ message: `message-${i}-${"x".repeat(50)}` }));
     }
     await testClient.flush();
 
     // Should have received multiple smaller batches
     expect(testServer.received.length).toBeGreaterThan(1);
-    const totalEntries = testServer.received.reduce(
-      (sum, r) => sum + (r.body as unknown[]).length,
-      0,
-    );
+    const totalEntries = testServer.received.reduce((sum, r) => sum + (r.body as unknown[]).length, 0);
     expect(totalEntries).toBe(10);
   });
 });

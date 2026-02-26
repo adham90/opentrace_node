@@ -1,21 +1,21 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes } from "node:crypto";
 
 const HEX_RE = /^[0-9a-f]+$/;
 const TRACEPARENT_RE = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
 
 export function generateTraceId(): string {
-  return randomBytes(16).toString('hex');
+  return randomBytes(16).toString("hex");
 }
 
 export function generateSpanId(): string {
-  return randomBytes(8).toString('hex');
+  return randomBytes(8).toString("hex");
 }
 
 export function normalizeTraceId(id: string): string {
-  const cleaned = id.replace(/-/g, '').toLowerCase();
+  const cleaned = id.replace(/-/g, "").toLowerCase();
   if (!HEX_RE.test(cleaned)) return generateTraceId();
   if (cleaned.length >= 32) return cleaned.slice(0, 32);
-  return cleaned.padEnd(32, '0');
+  return cleaned.padEnd(32, "0");
 }
 
 export interface TraceparentInfo {
@@ -35,7 +35,7 @@ export function parseTraceparent(header: string): TraceparentInfo | null {
 }
 
 export function buildTraceparent(traceId: string, spanId: string, sampled = true): string {
-  const flags = sampled ? '01' : '00';
+  const flags = sampled ? "01" : "00";
   return `00-${traceId}-${spanId}-${flags}`;
 }
 
@@ -49,7 +49,7 @@ export function extractTraceContext(headers: Record<string, string | string[] | 
   const spanId = generateSpanId();
 
   // Priority 1: W3C traceparent
-  const traceparent = headerValue(headers, 'traceparent');
+  const traceparent = headerValue(headers, "traceparent");
   if (traceparent) {
     const parsed = parseTraceparent(traceparent);
     if (parsed) {
@@ -58,13 +58,13 @@ export function extractTraceContext(headers: Record<string, string | string[] | 
   }
 
   // Priority 2: X-Trace-ID
-  const xTraceId = headerValue(headers, 'x-trace-id');
+  const xTraceId = headerValue(headers, "x-trace-id");
   if (xTraceId) {
     return { traceId: normalizeTraceId(xTraceId), spanId, parentSpanId: null };
   }
 
   // Priority 3: X-Request-ID (normalize to 32-char hex)
-  const xRequestId = headerValue(headers, 'x-request-id');
+  const xRequestId = headerValue(headers, "x-request-id");
   if (xRequestId) {
     return { traceId: normalizeTraceId(xRequestId), spanId, parentSpanId: null };
   }

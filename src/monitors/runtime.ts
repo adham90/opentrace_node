@@ -1,8 +1,6 @@
-import v8 from 'node:v8';
+import v8 from "node:v8";
 
-interface RuntimeMetricsEmitter {
-  (eventType: string, message: string, metadata: Record<string, unknown>): void;
-}
+type RuntimeMetricsEmitter = (eventType: string, message: string, metadata: Record<string, unknown>) => void;
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -28,14 +26,14 @@ export function startRuntimeMonitor(intervalMs: number, emit: RuntimeMetricsEmit
       // Active handles/requests (useful for leak detection)
       // biome-ignore lint/suspicious/noExplicitAny: accessing undocumented Node.js process internals
       const proc = process as any;
-      if (typeof proc._getActiveHandles === 'function') {
+      if (typeof proc._getActiveHandles === "function") {
         metrics.active_handles = proc._getActiveHandles().length;
       }
-      if (typeof proc._getActiveRequests === 'function') {
+      if (typeof proc._getActiveRequests === "function") {
         metrics.active_requests = proc._getActiveRequests().length;
       }
 
-      emit('runtime.metrics', 'Runtime metrics', metrics);
+      emit("runtime.metrics", "Runtime metrics", metrics);
     } catch {
       // Never throw from monitor
     }

@@ -1,5 +1,5 @@
-import type { RequestSummary, TimelineEvent } from './types.js';
-import { fingerprint as sqlFingerprint } from './sql-normalizer.js';
+import { fingerprint as sqlFingerprint } from "./sql-normalizer.js";
+import type { RequestSummary, TimelineEvent } from "./types.js";
 
 const MAX_FINGERPRINTS = 100;
 const N_PLUS_ONE_THRESHOLD = 20;
@@ -9,12 +9,12 @@ export class RequestCollector {
   sqlCount = 0;
   sqlTotalMs = 0;
   sqlSlowestMs = 0;
-  sqlSlowestName = '';
+  sqlSlowestName = "";
 
   httpCount = 0;
   httpTotalMs = 0;
   httpSlowestMs = 0;
-  httpSlowestHost = '';
+  httpSlowestHost = "";
 
   private sqlFingerprints = new Map<string, number>();
   private timeline: TimelineEvent[] = [];
@@ -44,7 +44,7 @@ export class RequestCollector {
 
     if (this.timelineEnabled && this.timeline.length < this.timelineMaxEvents) {
       this.timeline.push({
-        t: 'sql',
+        t: "sql",
         n: name,
         ms: Math.round(durationMs * 100) / 100,
         at: Math.round((performance.now() - this.requestStart) * 100) / 100,
@@ -63,7 +63,7 @@ export class RequestCollector {
 
     if (this.timelineEnabled && this.timeline.length < this.timelineMaxEvents) {
       this.timeline.push({
-        t: 'http',
+        t: "http",
         n: `${method} ${host}`,
         ms: Math.round(durationMs * 100) / 100,
         s: status,
@@ -75,7 +75,7 @@ export class RequestCollector {
   recordSpan(name: string, durationMs: number): void {
     if (this.timelineEnabled && this.timeline.length < this.timelineMaxEvents) {
       this.timeline.push({
-        t: 'span',
+        t: "span",
         n: name,
         ms: Math.round(durationMs * 100) / 100,
         at: Math.round((performance.now() - this.requestStart) * 100) / 100,

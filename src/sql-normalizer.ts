@@ -1,25 +1,25 @@
-import { createHash } from 'node:crypto';
+import { createHash } from "node:crypto";
 
 // Patterns to replace with ? placeholder
 const NORMALIZATIONS: [RegExp, string][] = [
   // Single-quoted strings (including escaped quotes)
-  [/'(?:[^'\\]|\\.)*'/g, '?'],
+  [/'(?:[^'\\]|\\.)*'/g, "?"],
   // Double-quoted strings
-  [/"(?:[^"\\]|\\.)*"/g, '?'],
+  [/"(?:[^"\\]|\\.)*"/g, "?"],
   // Hex literals
-  [/\b0x[0-9a-fA-F]+\b/g, '?'],
+  [/\b0x[0-9a-fA-F]+\b/g, "?"],
   // Floats (must come before integers)
-  [/\b\d+\.\d+\b/g, '?'],
+  [/\b\d+\.\d+\b/g, "?"],
   // Integers
-  [/\b\d+\b/g, '?'],
+  [/\b\d+\b/g, "?"],
   // Booleans
-  [/\b(?:TRUE|FALSE)\b/gi, '?'],
+  [/\b(?:TRUE|FALSE)\b/gi, "?"],
   // NULL
-  [/\bNULL\b/gi, '?'],
+  [/\bNULL\b/gi, "?"],
   // Collapse multiple ? in IN clauses
-  [/\(\s*\?(?:\s*,\s*\?)*\s*\)/g, '(?)'],
+  [/\(\s*\?(?:\s*,\s*\?)*\s*\)/g, "(?)"],
   // Collapse whitespace
-  [/\s+/g, ' '],
+  [/\s+/g, " "],
 ];
 
 export function normalize(sql: string): string {
@@ -32,5 +32,5 @@ export function normalize(sql: string): string {
 
 export function fingerprint(sql: string): string {
   const normalized = normalize(sql);
-  return createHash('md5').update(normalized).digest('hex').slice(0, 12);
+  return createHash("md5").update(normalized).digest("hex").slice(0, 12);
 }

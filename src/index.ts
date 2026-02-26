@@ -1,20 +1,27 @@
-import { createHash } from 'node:crypto';
-import { type OpenTraceConfig, type ResolvedConfig, clearLevelCache, isLevelEnabled, resolveConfig, validateConfig } from './config.js';
-import { Client } from './client.js';
-import { getContext } from './context.js';
-import type { DeferredEntry, DeferredError, DeferredEvent, DeferredLog, ErrorCause } from './types.js';
-import type { StatsSnapshot } from './stats.js';
-import { createExpressMiddleware, type OpenTraceInternals } from './middleware/express.js';
-import { createFastifyPlugin } from './middleware/fastify.js';
-import { createHonoMiddleware } from './middleware/hono.js';
-import { generateSpanId } from './trace-context.js';
+import { createHash } from "node:crypto";
+import { Client } from "./client.js";
+import {
+  type OpenTraceConfig,
+  type ResolvedConfig,
+  clearLevelCache,
+  isLevelEnabled,
+  resolveConfig,
+  validateConfig,
+} from "./config.js";
+import { getContext } from "./context.js";
+import { type OpenTraceInternals, createExpressMiddleware } from "./middleware/express.js";
+import { createFastifyPlugin } from "./middleware/fastify.js";
+import { createHonoMiddleware } from "./middleware/hono.js";
+import type { StatsSnapshot } from "./stats.js";
+import { generateSpanId } from "./trace-context.js";
+import type { DeferredEntry, DeferredError, DeferredEvent, DeferredLog, ErrorCause } from "./types.js";
 
-export type { OpenTraceConfig } from './config.js';
-export type { LogLevel } from './config.js';
-export type { Payload, DeferredEntry, RequestSummary } from './types.js';
-export type { StatsSnapshot } from './stats.js';
-export { getContext } from './context.js';
-export { RequestCollector } from './request-collector.js';
+export type { OpenTraceConfig } from "./config.js";
+export type { LogLevel } from "./config.js";
+export type { Payload, DeferredEntry, RequestSummary } from "./types.js";
+export type { StatsSnapshot } from "./stats.js";
+export { getContext } from "./context.js";
+export { RequestCollector } from "./request-collector.js";
 
 let initialized = false;
 let config: ResolvedConfig | null = null;
@@ -25,29 +32,34 @@ let beforeExitHandler: (() => void) | null = null;
 
 function debugLog(...args: unknown[]): void {
   if (config?.debug) {
-    console.debug('[OpenTrace]', ...args);
+    console.debug("[OpenTrace]", ...args);
   }
 }
 
 function getInternals(): OpenTraceInternals {
   return {
     enabled: () => initialized && enabled,
-    config: () => config ? {
-      ignorePaths: config.ignorePaths,
-      requestSummary: config.requestSummary,
-      timeline: config.timeline,
-      timelineMaxEvents: config.timelineMaxEvents,
-    } : null,
+    config: () =>
+      config
+        ? {
+            ignorePaths: config.ignorePaths,
+            requestSummary: config.requestSummary,
+            timeline: config.timeline,
+            timelineMaxEvents: config.timelineMaxEvents,
+          }
+        : null,
     enqueue: (entry) => client?.enqueue(entry),
     sample: (req) => client?.sampler.sample(req) ?? false,
-    recordSampledOut: () => { if (client) client.stats.sampledOut++; },
+    recordSampledOut: () => {
+      if (client) client.stats.sampledOut++;
+    },
   };
 }
 
 const OpenTrace = {
   init(options: OpenTraceConfig): void {
     if (initialized) {
-      debugLog('Already initialized, ignoring duplicate init()');
+      debugLog("Already initialized, ignoring duplicate init()");
       return;
     }
 
@@ -63,16 +75,18 @@ const OpenTrace = {
     initialized = true;
     enabled = true;
 
-    beforeExitHandler = () => { client?.flush(); };
-    process.on('beforeExit', beforeExitHandler);
+    beforeExitHandler = () => {
+      client?.flush();
+    };
+    process.on("beforeExit", beforeExitHandler);
 
-    debugLog('Initialized', { endpoint: config.endpoint, service: config.service });
+    debugLog("Initialized", { endpoint: config.endpoint, service: config.service });
   },
 
   async shutdown(timeoutMs = 5000): Promise<void> {
     if (!initialized || !client) return;
     if (beforeExitHandler) {
-      process.removeListener('beforeExit', beforeExitHandler);
+      process.removeListener("beforeExit", beforeExitHandler);
       beforeExitHandler = null;
     }
     await client.shutdown(timeoutMs);
@@ -82,7 +96,7 @@ const OpenTrace = {
     enabled = true;
     globalContext = {};
     clearLevelCache();
-    debugLog('Shut down');
+    debugLog("Shut down");
   },
 
   enabled(): boolean {
@@ -104,7 +118,7 @@ const OpenTrace = {
 
       const ctx = getContext();
       const entry: DeferredLog = {
-        kind: 'log',
+        kind: "log",
         ts: Date.now(),
         level,
         message,
@@ -123,15 +137,15 @@ const OpenTrace = {
   },
 
   debug(message: string, metadata: Record<string, unknown> = {}): void {
-    this.log('debug', message, metadata);
+    this.log("debug", message, metadata);
   },
 
   info(message: string, metadata: Record<string, unknown> = {}): void {
-    this.log('info', message, metadata);
+    this.log("info", message, metadata);
   },
 
   warn(message: string, metadata: Record<string, unknown> = {}): void {
-    this.log('warn', message, metadata);
+    this.log("warn", message, metadata);
   },
 
   error(err: Error | string, metadata: Record<string, unknown> = {}): void {
@@ -140,15 +154,15 @@ const OpenTrace = {
 
       const isError = err instanceof Error;
       const message = isError ? err.message : String(err);
-      const exceptionClass = isError ? err.name : 'Error';
-      const stack = isError ? cleanStack(err.stack ?? '') : '';
+      const exceptionClass = isError ? err.name : "Error";
+      const stack = isError ? cleanStack(err.stack ?? "") : "";
       const origin = extractOrigin(stack);
       const fingerprint = computeFingerprint(exceptionClass, origin);
       const causes = isError ? walkCauses(err) : [];
 
       const ctx = getContext();
       const entry: DeferredError = {
-        kind: 'error',
+        kind: "error",
         ts: Date.now(),
         message,
         exceptionClass,
@@ -175,7 +189,7 @@ const OpenTrace = {
 
       const ctx = getContext();
       const entry: DeferredEvent = {
-        kind: 'event',
+        kind: "event",
         ts: Date.now(),
         eventType,
         message,
@@ -229,7 +243,7 @@ const OpenTrace = {
   addBreadcrumb(crumb: { category?: string; message: string; data?: Record<string, unknown>; level?: string }): void {
     try {
       const ctx = getContext();
-      ctx?.breadcrumbs.add(crumb.category ?? 'custom', crumb.message, crumb.data, crumb.level);
+      ctx?.breadcrumbs.add(crumb.category ?? "custom", crumb.message, crumb.data, crumb.level);
     } catch {
       // Never throw
     }
@@ -316,9 +330,9 @@ function finishSpan(
   try {
     if (initialized && enabled && client && config) {
       const entry: DeferredLog = {
-        kind: 'log',
+        kind: "log",
         ts: Date.now(),
-        level: 'info',
+        level: "info",
         message: `span: ${operation} ${Math.round(durationMs)}ms`,
         metadata: {
           span_operation: operation,
@@ -339,23 +353,23 @@ function finishSpan(
 
 function cleanStack(stack: string): string {
   return stack
-    .split('\n')
-    .filter((line) => !line.includes('node_modules') && !line.includes('node:internal'))
-    .join('\n');
+    .split("\n")
+    .filter((line) => !line.includes("node_modules") && !line.includes("node:internal"))
+    .join("\n");
 }
 
 function extractOrigin(stack: string): string {
-  if (!stack) return '';
-  const lines = stack.split('\n');
+  if (!stack) return "";
+  const lines = stack.split("\n");
   for (const line of lines) {
     const match = line.match(/at\s+.*?\((.+?):\d+:\d+\)/) ?? line.match(/at\s+(.+?):\d+:\d+/);
     if (match) return match[1];
   }
-  return '';
+  return "";
 }
 
 function computeFingerprint(exceptionClass: string, origin: string): string {
-  return createHash('md5').update(`${exceptionClass}||${origin}`).digest('hex').slice(0, 12);
+  return createHash("md5").update(`${exceptionClass}||${origin}`).digest("hex").slice(0, 12);
 }
 
 const MAX_CAUSE_DEPTH = 5;
@@ -369,7 +383,7 @@ function walkCauses(err: Error): ErrorCause[] {
     causes.push({
       className: current.name,
       message: current.message,
-      stack: cleanStack(current.stack ?? ''),
+      stack: cleanStack(current.stack ?? ""),
     });
     current = current.cause;
     depth++;

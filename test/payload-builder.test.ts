@@ -1,56 +1,56 @@
-import { describe, it, expect } from 'vitest';
-import { materialize, fitPayload } from '../src/payload-builder.js';
-import { resolveConfig } from '../src/config.js';
-import type { DeferredLog, DeferredError, DeferredEvent, DeferredRequest, Payload } from '../src/types.js';
+import { describe, expect, it } from "vitest";
+import { resolveConfig } from "../src/config.js";
+import { fitPayload, materialize } from "../src/payload-builder.js";
+import type { DeferredError, DeferredEvent, DeferredLog, DeferredRequest, Payload } from "../src/types.js";
 
 const config = resolveConfig({
-  endpoint: 'http://localhost:8080',
-  apiKey: 'test-key',
-  service: 'test-svc',
-  environment: 'test',
-  gitSha: 'abc123',
+  endpoint: "http://localhost:8080",
+  apiKey: "test-key",
+  service: "test-svc",
+  environment: "test",
+  gitSha: "abc123",
 });
 
-describe('materialize', () => {
-  it('materializes a log entry', () => {
+describe("materialize", () => {
+  it("materializes a log entry", () => {
     const entry: DeferredLog = {
-      kind: 'log',
-      ts: new Date('2026-01-15T12:00:00Z').getTime(),
-      level: 'info',
-      message: 'Hello world',
+      kind: "log",
+      ts: new Date("2026-01-15T12:00:00Z").getTime(),
+      level: "info",
+      message: "Hello world",
       metadata: { user_id: 42 },
       context: null,
-      requestId: 'req-1',
-      traceId: 'a'.repeat(32),
-      spanId: 'b'.repeat(16),
+      requestId: "req-1",
+      traceId: "a".repeat(32),
+      spanId: "b".repeat(16),
       parentSpanId: null,
     };
 
     const payload = materialize(entry, config);
 
-    expect(payload.timestamp).toBe('2026-01-15T12:00:00.000Z');
-    expect(payload.level).toBe('INFO');
-    expect(payload.service).toBe('test-svc');
-    expect(payload.environment).toBe('test');
-    expect(payload.message).toBe('Hello world');
-    expect(payload.commit_hash).toBe('abc123');
-    expect(payload.request_id).toBe('req-1');
-    expect(payload.trace_id).toBe('a'.repeat(32));
-    expect(payload.span_id).toBe('b'.repeat(16));
+    expect(payload.timestamp).toBe("2026-01-15T12:00:00.000Z");
+    expect(payload.level).toBe("INFO");
+    expect(payload.service).toBe("test-svc");
+    expect(payload.environment).toBe("test");
+    expect(payload.message).toBe("Hello world");
+    expect(payload.commit_hash).toBe("abc123");
+    expect(payload.request_id).toBe("req-1");
+    expect(payload.trace_id).toBe("a".repeat(32));
+    expect(payload.span_id).toBe("b".repeat(16));
     expect(payload.metadata.user_id).toBe(42);
     expect(payload.metadata.hostname).toBeTruthy();
     expect(payload.metadata.pid).toBe(process.pid);
   });
 
-  it('materializes an error entry', () => {
+  it("materializes an error entry", () => {
     const entry: DeferredError = {
-      kind: 'error',
+      kind: "error",
       ts: Date.now(),
-      message: 'Something broke',
-      exceptionClass: 'TypeError',
-      stack: 'TypeError: Something broke\n    at foo.js:10:5',
-      fingerprint: 'abc123def456',
-      causes: [{ className: 'ReferenceError', message: 'x is not defined', stack: '' }],
+      message: "Something broke",
+      exceptionClass: "TypeError",
+      stack: "TypeError: Something broke\n    at foo.js:10:5",
+      fingerprint: "abc123def456",
+      causes: [{ className: "ReferenceError", message: "x is not defined", stack: "" }],
       metadata: {},
       context: null,
       requestId: null,
@@ -61,20 +61,20 @@ describe('materialize', () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.level).toBe('ERROR');
-    expect(payload.exception_class).toBe('TypeError');
-    expect(payload.error_fingerprint).toBe('abc123def456');
-    expect(payload.metadata.stack_trace).toContain('TypeError');
+    expect(payload.level).toBe("ERROR");
+    expect(payload.exception_class).toBe("TypeError");
+    expect(payload.error_fingerprint).toBe("abc123def456");
+    expect(payload.metadata.stack_trace).toContain("TypeError");
     expect(payload.metadata.exception_causes).toHaveLength(1);
   });
 
-  it('materializes an event entry', () => {
+  it("materializes an event entry", () => {
     const entry: DeferredEvent = {
-      kind: 'event',
+      kind: "event",
       ts: Date.now(),
-      eventType: 'deploy',
-      message: 'Deployed v1.2.3',
-      metadata: { version: '1.2.3' },
+      eventType: "deploy",
+      message: "Deployed v1.2.3",
+      metadata: { version: "1.2.3" },
       context: null,
       requestId: null,
       traceId: null,
@@ -84,39 +84,39 @@ describe('materialize', () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.event_type).toBe('deploy');
-    expect(payload.message).toBe('Deployed v1.2.3');
-    expect(payload.metadata.version).toBe('1.2.3');
+    expect(payload.event_type).toBe("deploy");
+    expect(payload.message).toBe("Deployed v1.2.3");
+    expect(payload.metadata.version).toBe("1.2.3");
   });
 
-  it('materializes a request entry', () => {
+  it("materializes a request entry", () => {
     const started = Date.now();
     const entry: DeferredRequest = {
-      kind: 'request',
+      kind: "request",
       started,
       finished: started + 150,
-      method: 'GET',
-      path: '/api/users',
+      method: "GET",
+      path: "/api/users",
       status: 200,
-      controller: 'UsersController',
-      action: 'index',
-      requestId: 'req-1',
-      traceId: 'a'.repeat(32),
-      spanId: 'b'.repeat(16),
+      controller: "UsersController",
+      action: "index",
+      requestId: "req-1",
+      traceId: "a".repeat(32),
+      spanId: "b".repeat(16),
       parentSpanId: null,
       context: null,
       summary: {
         sqlQueryCount: 3,
         sqlTotalMs: 12.5,
         sqlSlowestMs: 8.0,
-        sqlSlowestName: 'SELECT * FROM users',
+        sqlSlowestName: "SELECT * FROM users",
         nPlusOneWarning: false,
         duplicateQueries: 0,
         worstDuplicateCount: 0,
         httpCount: 0,
         httpTotalMs: 0,
         httpSlowestMs: 0,
-        httpSlowestHost: '',
+        httpSlowestHost: "",
       },
       error: null,
       extra: {},
@@ -124,21 +124,21 @@ describe('materialize', () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.level).toBe('INFO');
-    expect(payload.message).toContain('GET /api/users 200');
+    expect(payload.level).toBe("INFO");
+    expect(payload.message).toContain("GET /api/users 200");
     expect(payload.request_summary?.sqlQueryCount).toBe(3);
-    expect(payload.metadata.controller).toBe('UsersController');
+    expect(payload.metadata.controller).toBe("UsersController");
     expect(payload.metadata.duration_ms).toBe(150);
   });
 
-  it('sets ERROR level for 5xx requests', () => {
+  it("sets ERROR level for 5xx requests", () => {
     const started = Date.now();
     const entry: DeferredRequest = {
-      kind: 'request',
+      kind: "request",
       started,
       finished: started + 50,
-      method: 'POST',
-      path: '/api/orders',
+      method: "POST",
+      path: "/api/orders",
       status: 500,
       controller: null,
       action: null,
@@ -153,17 +153,17 @@ describe('materialize', () => {
     };
 
     const payload = materialize(entry, config);
-    expect(payload.level).toBe('ERROR');
+    expect(payload.level).toBe("ERROR");
   });
 
-  it('sets WARN level for 4xx requests', () => {
+  it("sets WARN level for 4xx requests", () => {
     const started = Date.now();
     const entry: DeferredRequest = {
-      kind: 'request',
+      kind: "request",
       started,
       finished: started + 20,
-      method: 'GET',
-      path: '/api/missing',
+      method: "GET",
+      path: "/api/missing",
       status: 404,
       controller: null,
       action: null,
@@ -178,24 +178,24 @@ describe('materialize', () => {
     };
 
     const payload = materialize(entry, config);
-    expect(payload.level).toBe('WARN');
+    expect(payload.level).toBe("WARN");
   });
 
-  it('merges context with correct priority', () => {
+  it("merges context with correct priority", () => {
     const configWithContext = resolveConfig({
-      endpoint: 'http://localhost',
-      apiKey: 'key',
-      service: 'svc',
-      context: { tenant: 'acme', source: 'config' },
+      endpoint: "http://localhost",
+      apiKey: "key",
+      service: "svc",
+      context: { tenant: "acme", source: "config" },
     });
 
     const entry: DeferredLog = {
-      kind: 'log',
+      kind: "log",
       ts: Date.now(),
-      level: 'info',
-      message: 'test',
-      metadata: { source: 'metadata' },
-      context: { tenant: 'override', from_request: true },
+      level: "info",
+      message: "test",
+      metadata: { source: "metadata" },
+      context: { tenant: "override", from_request: true },
       requestId: null,
       traceId: null,
       spanId: null,
@@ -205,32 +205,32 @@ describe('materialize', () => {
     const payload = materialize(entry, configWithContext);
 
     // metadata wins over request context, request context wins over config context
-    expect(payload.metadata.source).toBe('metadata');
-    expect(payload.metadata.tenant).toBe('override');
+    expect(payload.metadata.source).toBe("metadata");
+    expect(payload.metadata.tenant).toBe("override");
     expect(payload.metadata.from_request).toBe(true);
   });
 });
 
-describe('fitPayload', () => {
-  it('returns payload as-is if within size limit', () => {
+describe("fitPayload", () => {
+  it("returns payload as-is if within size limit", () => {
     const payload: Payload = {
       timestamp: new Date().toISOString(),
-      level: 'INFO',
-      service: 'svc',
-      message: 'small',
+      level: "INFO",
+      service: "svc",
+      message: "small",
       metadata: {},
     };
 
     expect(fitPayload(payload, 10000)).toEqual(payload);
   });
 
-  it('removes stack_trace first', () => {
+  it("removes stack_trace first", () => {
     const payload: Payload = {
       timestamp: new Date().toISOString(),
-      level: 'ERROR',
-      service: 'svc',
-      message: 'err',
-      metadata: { stack_trace: 'x'.repeat(5000), important: true },
+      level: "ERROR",
+      service: "svc",
+      message: "err",
+      metadata: { stack_trace: "x".repeat(5000), important: true },
     };
 
     const fitted = fitPayload(payload, 200);
@@ -241,12 +241,12 @@ describe('fitPayload', () => {
     }
   });
 
-  it('returns null if payload cannot fit after all truncations', () => {
+  it("returns null if payload cannot fit after all truncations", () => {
     const payload: Payload = {
       timestamp: new Date().toISOString(),
-      level: 'ERROR',
-      service: 'svc',
-      message: 'x'.repeat(10000),
+      level: "ERROR",
+      service: "svc",
+      message: "x".repeat(10000),
       metadata: {},
     };
 

@@ -1,6 +1,6 @@
-import { hostname } from 'node:os';
+import { hostname } from "node:os";
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LEVEL_VALUES: Record<LogLevel, number> = {
   debug: 0,
@@ -27,7 +27,7 @@ export interface OpenTraceConfig {
   compression?: boolean;
   compressionThreshold?: number;
   timeout?: number;
-  transport?: 'http' | 'unix_socket';
+  transport?: "http" | "unix_socket";
   socketPath?: string;
 
   // Retry & Resilience
@@ -86,7 +86,7 @@ export interface ResolvedConfig {
   compression: boolean;
   compressionThreshold: number;
   timeout: number;
-  transport: 'http' | 'unix_socket';
+  transport: "http" | "unix_socket";
   socketPath: string;
   maxRetries: number;
   retryBaseDelay: number;
@@ -119,31 +119,31 @@ export interface ResolvedConfig {
 
 export function resolveConfig(input: OpenTraceConfig): ResolvedConfig {
   return {
-    endpoint: input.endpoint.replace(/\/+$/, ''),
+    endpoint: input.endpoint.replace(/\/+$/, ""),
     apiKey: input.apiKey,
     service: input.service,
-    environment: input.environment ?? '',
+    environment: input.environment ?? "",
     hostname: input.hostname ?? hostname(),
     pid: process.pid,
-    gitSha: input.gitSha ?? process.env.REVISION ?? process.env.GIT_SHA ?? process.env.HEROKU_SLUG_COMMIT ?? '',
+    gitSha: input.gitSha ?? process.env.REVISION ?? process.env.GIT_SHA ?? process.env.HEROKU_SLUG_COMMIT ?? "",
     batchSize: input.batchSize ?? 50,
     flushInterval: input.flushInterval ?? 5000,
     maxPayloadBytes: input.maxPayloadBytes ?? 256 * 1024,
     compression: input.compression ?? true,
     compressionThreshold: input.compressionThreshold ?? 1024,
     timeout: input.timeout ?? 5000,
-    transport: input.transport ?? 'http',
-    socketPath: input.socketPath ?? '/tmp/opentrace.sock',
+    transport: input.transport ?? "http",
+    socketPath: input.socketPath ?? "/tmp/opentrace.sock",
     maxRetries: input.maxRetries ?? 2,
     retryBaseDelay: input.retryBaseDelay ?? 100,
     retryMaxDelay: input.retryMaxDelay ?? 2000,
     circuitBreakerThreshold: input.circuitBreakerThreshold ?? 5,
     circuitBreakerTimeout: input.circuitBreakerTimeout ?? 30000,
-    minLevel: input.minLevel ?? 'info',
+    minLevel: input.minLevel ?? "info",
     allowedLevels: input.allowedLevels ?? null,
     sampleRate: input.sampleRate ?? 1.0,
     sampler: input.sampler ?? null,
-    ignorePaths: input.ignorePaths ?? ['/health', '/ready', '/live'],
+    ignorePaths: input.ignorePaths ?? ["/health", "/ready", "/live"],
     requestSummary: input.requestSummary ?? true,
     sqlLogging: input.sqlLogging ?? false,
     httpTracking: input.httpTracking ?? false,
@@ -165,16 +165,16 @@ export function resolveConfig(input: OpenTraceConfig): ResolvedConfig {
 }
 
 export function validateConfig(config: OpenTraceConfig): string | null {
-  if (!config.endpoint) return 'endpoint is required';
-  if (!config.apiKey) return 'apiKey is required';
-  if (!config.service) return 'service is required';
+  if (!config.endpoint) return "endpoint is required";
+  if (!config.apiKey) return "apiKey is required";
+  if (!config.service) return "service is required";
   return null;
 }
 
 const levelCache = new Map<string, boolean>();
 
 export function isLevelEnabled(level: string, config: ResolvedConfig): boolean {
-  const cacheKey = `${level}:${config.minLevel}:${config.allowedLevels?.join(',')}`;
+  const cacheKey = `${level}:${config.minLevel}:${config.allowedLevels?.join(",")}`;
   const cached = levelCache.get(cacheKey);
   if (cached !== undefined) return cached;
 

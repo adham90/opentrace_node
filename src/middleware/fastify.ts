@@ -1,9 +1,9 @@
-import { asyncLocalStorage, createRequestContext } from '../context.js';
-import { RequestCollector } from '../request-collector.js';
-import { extractTraceContext } from '../trace-context.js';
-import type { DeferredRequest } from '../types.js';
-import { isIgnoredPath } from './common.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto";
+import { asyncLocalStorage, createRequestContext } from "../context.js";
+import { RequestCollector } from "../request-collector.js";
+import { extractTraceContext } from "../trace-context.js";
+import type { DeferredRequest } from "../types.js";
+import { isIgnoredPath } from "./common.js";
 
 export interface OpenTraceInternals {
   enabled(): boolean;
@@ -33,21 +33,21 @@ export interface FastifyReply {
 type DoneCallback = (err?: Error) => void;
 
 export interface FastifyInstance {
-  addHook(name: 'onRequest', handler: (req: FastifyRequest, reply: FastifyReply, done: DoneCallback) => void): void;
-  addHook(name: 'onResponse', handler: (req: FastifyRequest, reply: FastifyReply, done: DoneCallback) => void): void;
+  addHook(name: "onRequest", handler: (req: FastifyRequest, reply: FastifyReply, done: DoneCallback) => void): void;
+  addHook(name: "onResponse", handler: (req: FastifyRequest, reply: FastifyReply, done: DoneCallback) => void): void;
 }
 
 export function createFastifyPlugin(internals: OpenTraceInternals) {
   function opentracePlugin(fastify: FastifyInstance, _opts: Record<string, unknown>, done: DoneCallback): void {
     const requestTiming = new WeakMap<object, { start: number; store: ReturnType<typeof createRequestContext> }>();
 
-    fastify.addHook('onRequest', (req, _reply, done) => {
+    fastify.addHook("onRequest", (req, _reply, done) => {
       if (!internals.enabled()) return done();
 
       const cfg = internals.config();
       if (!cfg) return done();
 
-      const urlPath = req.url.split('?')[0];
+      const urlPath = req.url.split("?")[0];
       if (isIgnoredPath(urlPath, cfg.ignorePaths)) return done();
 
       if (!internals.sample(req)) {
@@ -57,11 +57,9 @@ export function createFastifyPlugin(internals: OpenTraceInternals) {
 
       const start = performance.now();
       const traceInfo = extractTraceContext(req.headers);
-      const requestId = (req.headers['x-request-id'] as string) ?? req.id ?? randomUUID();
+      const requestId = (req.headers["x-request-id"] as string) ?? req.id ?? randomUUID();
 
-      const collector = cfg.requestSummary
-        ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents)
-        : null;
+      const collector = cfg.requestSummary ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents) : null;
 
       const store = createRequestContext({
         requestId,
@@ -77,7 +75,7 @@ export function createFastifyPlugin(internals: OpenTraceInternals) {
       done();
     });
 
-    fastify.addHook('onResponse', (req, reply, done) => {
+    fastify.addHook("onResponse", (req, reply, done) => {
       const timing = requestTiming.get(req as object);
       if (!timing) return done();
 
@@ -87,11 +85,11 @@ export function createFastifyPlugin(internals: OpenTraceInternals) {
       const { store } = timing;
 
       const entry: DeferredRequest = {
-        kind: 'request',
+        kind: "request",
         started: Date.now() - durationMs,
         finished: Date.now(),
         method: req.method,
-        path: req.url.split('?')[0],
+        path: req.url.split("?")[0],
         status: reply.statusCode,
         controller: null,
         action: null,
@@ -113,8 +111,8 @@ export function createFastifyPlugin(internals: OpenTraceInternals) {
   }
 
   // Fastify expects plugin metadata
-  Object.defineProperty(opentracePlugin, Symbol.for('fastify.display-name'), {
-    value: 'opentrace',
+  Object.defineProperty(opentracePlugin, Symbol.for("fastify.display-name"), {
+    value: "opentrace",
   });
 
   return opentracePlugin;

@@ -6,17 +6,11 @@ export interface PoolStats {
 
 export type PoolStatsProvider = () => PoolStats | null;
 
-interface PoolMetricsEmitter {
-  (eventType: string, message: string, metadata: Record<string, unknown>): void;
-}
+type PoolMetricsEmitter = (eventType: string, message: string, metadata: Record<string, unknown>) => void;
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-export function startPoolMonitor(
-  intervalMs: number,
-  provider: PoolStatsProvider,
-  emit: PoolMetricsEmitter,
-): void {
+export function startPoolMonitor(intervalMs: number, provider: PoolStatsProvider, emit: PoolMetricsEmitter): void {
   if (timer) return;
 
   timer = setInterval(() => {
@@ -24,7 +18,7 @@ export function startPoolMonitor(
       const stats = provider();
       if (!stats) return;
 
-      const level = stats.waitingCount > 0 ? 'warn' : 'debug';
+      const level = stats.waitingCount > 0 ? "warn" : "debug";
       const metadata: Record<string, unknown> = {
         pool_total: stats.totalCount,
         pool_idle: stats.idleCount,
@@ -33,7 +27,7 @@ export function startPoolMonitor(
         level,
       };
 
-      emit('pool.stats', 'Connection pool stats', metadata);
+      emit("pool.stats", "Connection pool stats", metadata);
     } catch {
       // Never throw from monitor
     }

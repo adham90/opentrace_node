@@ -1,14 +1,14 @@
-import { type RequestOptions, request as httpRequest } from 'node:http';
-import { request as httpsRequest } from 'node:https';
-import { gzipSync } from 'node:zlib';
-import { randomUUID } from 'node:crypto';
-import type { ResolvedConfig } from './config.js';
-import { CircuitBreaker } from './circuit-breaker.js';
-import { Stats } from './stats.js';
-import { Sampler } from './sampler.js';
-import { materialize, fitPayload } from './payload-builder.js';
-import { scrub } from './pii-scrubber.js';
-import type { DeferredEntry, Payload } from './types.js';
+import { randomUUID } from "node:crypto";
+import { type RequestOptions, request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { gzipSync } from "node:zlib";
+import { CircuitBreaker } from "./circuit-breaker.js";
+import type { ResolvedConfig } from "./config.js";
+import { fitPayload, materialize } from "./payload-builder.js";
+import { scrub } from "./pii-scrubber.js";
+import { Sampler } from "./sampler.js";
+import { Stats } from "./stats.js";
+import type { DeferredEntry, Payload } from "./types.js";
 
 const MAX_QUEUE_SIZE = 1000;
 const MAX_SPLIT_DEPTH = 5;
@@ -43,7 +43,7 @@ export class Client {
 
     if (this.queue.length >= MAX_QUEUE_SIZE) {
       this.stats.droppedQueueFull++;
-      this.config.onDrop?.(1, 'queue_full');
+      this.config.onDrop?.(1, "queue_full");
       return;
     }
 
@@ -82,7 +82,7 @@ export class Client {
     if (this.queue.length > 0) {
       const dropped = this.queue.length;
       this.stats.droppedError += dropped;
-      this.config.onDrop?.(dropped, 'shutdown_timeout');
+      this.config.onDrop?.(dropped, "shutdown_timeout");
       this.queue = [];
     }
   }
@@ -149,14 +149,25 @@ export class Client {
       // Re-enqueue if space
       for (const p of payloads) {
         if (this.queue.length < MAX_QUEUE_SIZE) {
-          this.queue.push({ kind: 'log', ts: Date.now(), level: 'info', message: '', metadata: p as unknown as Record<string, unknown>, context: null, requestId: null, traceId: null, spanId: null, parentSpanId: null });
+          this.queue.push({
+            kind: "log",
+            ts: Date.now(),
+            level: "info",
+            message: "",
+            metadata: p as unknown as Record<string, unknown>,
+            context: null,
+            requestId: null,
+            traceId: null,
+            spanId: null,
+            parentSpanId: null,
+          });
         }
       }
       return;
     }
 
     const json = JSON.stringify(payloads);
-    const bytes = Buffer.byteLength(json, 'utf8');
+    const bytes = Buffer.byteLength(json, "utf8");
 
     // Split if too large
     if (bytes > this.config.maxPayloadBytes && payloads.length > 1 && depth < MAX_SPLIT_DEPTH) {
@@ -172,15 +183,15 @@ export class Client {
   private async sendWithRetry(json: string, bytes: number, count: number): Promise<void> {
     let body: Buffer | string = json;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${this.config.apiKey}`,
-      'User-Agent': `@opentrace/node 0.1.0`,
-      'X-Batch-ID': randomUUID(),
+      "User-Agent": "@opentrace/node 0.1.0",
+      "X-Batch-ID": randomUUID(),
     };
 
     if (this.config.compression && bytes > this.config.compressionThreshold) {
       body = gzipSync(json);
-      headers['Content-Encoding'] = 'gzip';
+      headers["Content-Encoding"] = "gzip";
     }
 
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
@@ -199,7 +210,7 @@ export class Client {
           this.circuitBreaker.recordSuccess();
           this.stats.delivered += count;
           this.stats.batchesSent++;
-          this.stats.bytesSent += typeof body === 'string' ? Buffer.byteLength(body) : body.length;
+          this.stats.bytesSent += typeof body === "string" ? Buffer.byteLength(body) : body.length;
           this.config.afterSend?.(count, bytes);
           return;
         }
@@ -239,22 +250,22 @@ export class Client {
   private httpPost(body: Buffer | string, headers: Record<string, string>): Promise<number> {
     return new Promise((resolve, reject) => {
       const url = new URL(`${this.config.endpoint}/api/logs`);
-      const isHttps = url.protocol === 'https:';
+      const isHttps = url.protocol === "https:";
       const reqFn = isHttps ? httpsRequest : httpRequest;
 
       const options: RequestOptions = {
         hostname: url.hostname,
         port: url.port || (isHttps ? 443 : 80),
         path: url.pathname,
-        method: 'POST',
+        method: "POST",
         headers: {
           ...headers,
-          'Content-Length': typeof body === 'string' ? Buffer.byteLength(body) : body.length,
+          "Content-Length": typeof body === "string" ? Buffer.byteLength(body) : body.length,
         },
         timeout: this.config.timeout,
       };
 
-      if (this.config.transport === 'unix_socket') {
+      if (this.config.transport === "unix_socket") {
         options.socketPath = this.config.socketPath;
       }
 
@@ -264,10 +275,10 @@ export class Client {
         resolve(res.statusCode ?? 0);
       });
 
-      req.on('error', reject);
-      req.on('timeout', () => {
+      req.on("error", reject);
+      req.on("timeout", () => {
         req.destroy();
-        reject(new Error('Request timeout'));
+        reject(new Error("Request timeout"));
       });
 
       req.end(body);

@@ -1,5 +1,5 @@
 export interface DeferredLog {
-  kind: 'log';
+  kind: "log";
   ts: number;
   level: string;
   message: string;
@@ -12,7 +12,7 @@ export interface DeferredLog {
 }
 
 export interface DeferredError {
-  kind: 'error';
+  kind: "error";
   ts: number;
   message: string;
   exceptionClass: string;
@@ -34,7 +34,7 @@ export interface ErrorCause {
 }
 
 export interface DeferredEvent {
-  kind: 'event';
+  kind: "event";
   ts: number;
   eventType: string;
   message: string;
@@ -72,7 +72,7 @@ export interface TimelineEvent {
 }
 
 export interface DeferredRequest {
-  kind: 'request';
+  kind: "request";
   started: number;
   finished: number;
   method: string;

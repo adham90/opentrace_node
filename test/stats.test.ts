@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { Stats } from '../src/stats.js';
+import { describe, expect, it } from "vitest";
+import { Stats } from "../src/stats.js";
 
-describe('Stats', () => {
-  it('starts with all counters at zero', () => {
+describe("Stats", () => {
+  it("starts with all counters at zero", () => {
     const stats = new Stats();
     const snap = stats.snapshot();
     expect(snap.enqueued).toBe(0);
@@ -12,14 +12,14 @@ describe('Stats', () => {
     expect(snap.bytesSent).toBe(0);
   });
 
-  it('tracks uptime', async () => {
+  it("tracks uptime", async () => {
     const stats = new Stats();
     await new Promise((r) => setTimeout(r, 50));
     const snap = stats.snapshot();
     expect(snap.uptimeSeconds).toBeGreaterThan(0);
   });
 
-  it('increments counters', () => {
+  it("increments counters", () => {
     const stats = new Stats();
     stats.enqueued += 10;
     stats.delivered += 8;
@@ -31,7 +31,7 @@ describe('Stats', () => {
     expect(snap.droppedQueueFull).toBe(2);
   });
 
-  it('resets all counters', () => {
+  it("resets all counters", () => {
     const stats = new Stats();
     stats.enqueued += 100;
     stats.delivered += 50;
@@ -44,7 +44,7 @@ describe('Stats', () => {
     expect(snap.retries).toBe(0);
   });
 
-  it('snapshot returns a plain object (not the stats instance)', () => {
+  it("snapshot returns a plain object (not the stats instance)", () => {
     const stats = new Stats();
     stats.enqueued = 5;
     const snap = stats.snapshot();

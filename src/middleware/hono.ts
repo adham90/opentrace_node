@@ -1,9 +1,9 @@
-import { asyncLocalStorage, createRequestContext } from '../context.js';
-import { RequestCollector } from '../request-collector.js';
-import { extractTraceContext } from '../trace-context.js';
-import type { DeferredRequest } from '../types.js';
-import { isIgnoredPath } from './common.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto";
+import { asyncLocalStorage, createRequestContext } from "../context.js";
+import { RequestCollector } from "../request-collector.js";
+import { extractTraceContext } from "../trace-context.js";
+import type { DeferredRequest } from "../types.js";
+import { isIgnoredPath } from "./common.js";
 
 export interface OpenTraceInternals {
   enabled(): boolean;
@@ -30,9 +30,11 @@ export interface HonoContext {
 }
 
 type HonoNext = () => Promise<void>;
+// biome-ignore lint/suspicious/noConfusingVoidType: Hono middleware can return void or Response
 type HonoMiddleware = (c: HonoContext, next: HonoNext) => Promise<void | Response>;
 
 export function createHonoMiddleware(internals: OpenTraceInternals): HonoMiddleware {
+  // biome-ignore lint/suspicious/noConfusingVoidType: Hono middleware can return void or Response
   return async function opentraceMiddleware(c: HonoContext, next: HonoNext): Promise<void | Response> {
     if (!internals.enabled()) return next();
 
@@ -49,16 +51,14 @@ export function createHonoMiddleware(internals: OpenTraceInternals): HonoMiddlew
 
     const start = performance.now();
     const headers: Record<string, string | undefined> = {
-      traceparent: c.req.header('traceparent'),
-      'x-trace-id': c.req.header('x-trace-id'),
-      'x-request-id': c.req.header('x-request-id'),
+      traceparent: c.req.header("traceparent"),
+      "x-trace-id": c.req.header("x-trace-id"),
+      "x-request-id": c.req.header("x-request-id"),
     };
     const traceInfo = extractTraceContext(headers);
-    const requestId = c.req.header('x-request-id') ?? randomUUID();
+    const requestId = c.req.header("x-request-id") ?? randomUUID();
 
-    const collector = cfg.requestSummary
-      ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents)
-      : null;
+    const collector = cfg.requestSummary ? new RequestCollector(start, cfg.timeline, cfg.timelineMaxEvents) : null;
 
     const store = createRequestContext({
       requestId,
@@ -74,7 +74,7 @@ export function createHonoMiddleware(internals: OpenTraceInternals): HonoMiddlew
       const durationMs = performance.now() - start;
 
       const entry: DeferredRequest = {
-        kind: 'request',
+        kind: "request",
         started: Date.now() - durationMs,
         finished: Date.now(),
         method: c.req.method,
