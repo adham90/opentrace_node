@@ -42,7 +42,7 @@ function materializeError(entry: DeferredEntry & { kind: "error" }, config: Reso
   const { user_id, tenant_id, session_id, ...rest } = merged;
 
   const payload = buildBase(entry.ts, "error", entry.message, config);
-  payload.exception_class = entry.exceptionClass;
+  payload.error_class = entry.errorClass;
   if (entry.fingerprint) payload.error_fingerprint = entry.fingerprint;
   if (user_id !== undefined) payload.user_id = String(user_id);
   if (tenant_id !== undefined) payload.tenant_id = String(tenant_id);
@@ -53,7 +53,7 @@ function materializeError(entry: DeferredEntry & { kind: "error" }, config: Reso
   if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
 
   const body: Record<string, unknown> = {};
-  const exception: Record<string, unknown> = { class: entry.exceptionClass };
+  const exception: Record<string, unknown> = { class: entry.errorClass };
   if (entry.stack) exception.stack = entry.stack;
   if (entry.causes.length > 0) exception.causes = entry.causes;
   body.exception = exception;
@@ -100,8 +100,10 @@ function materializeRequest(entry: DeferredRequest, config: ResolvedConfig): Pay
   payload.path = entry.path;
   payload.status = entry.status;
   payload.duration_ms = Math.round(durationMs * 100) / 100;
-  if (entry.controller) payload.controller = entry.controller;
-  if (entry.action) payload.action = entry.action;
+  if (entry.controller) {
+    const action = entry.action ? `#${entry.action}` : "";
+    payload.handler = `${entry.controller}${action}`;
+  }
 
   // Trace fields
   if (entry.requestId) payload.request_id = entry.requestId;
@@ -153,7 +155,7 @@ function materializeRequest(entry: DeferredRequest, config: ResolvedConfig): Pay
   }
 
   if (entry.error) {
-    payload.exception_class = entry.error.className;
+    payload.error_class = entry.error.className;
     body.exception = {
       class: entry.error.className,
       message: entry.error.message,

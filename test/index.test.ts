@@ -139,7 +139,7 @@ describe("OpenTrace", () => {
       expect(server.received).toHaveLength(1);
       const entry = server.received[0] as Record<string, unknown>;
       expect(entry.level).toBe("error");
-      expect(entry.exception_class).toBe("Error");
+      expect(entry.error_class).toBe("Error");
       // error_fingerprint is computed server-side; SDK sends empty string
       const body = entry.body as Record<string, unknown>;
       const exception = body.exception as Record<string, unknown>;
@@ -154,7 +154,7 @@ describe("OpenTrace", () => {
 
       const entry = server.received[0] as Record<string, unknown>;
       expect(entry.message).toBe("something went wrong");
-      expect(entry.exception_class).toBe("Error");
+      expect(entry.error_class).toBe("Error");
       expect(entry.level).toBe("error");
     });
   });

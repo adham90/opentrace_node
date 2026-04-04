@@ -15,7 +15,7 @@ export interface DeferredError {
   kind: "error";
   ts: number;
   message: string;
-  exceptionClass: string;
+  errorClass: string;
   stack: string;
   fingerprint: string;
   causes: ErrorCause[];
@@ -111,7 +111,7 @@ export interface Payload {
 
   // Classification
   event_type?: string;
-  exception_class?: string;
+  error_class?: string;
   error_fingerprint?: string;
 
   // Flat request fields
@@ -119,8 +119,7 @@ export interface Payload {
   path?: string;
   status?: number;
   duration_ms?: number;
-  controller?: string;
-  action?: string;
+  handler?: string;
 
   // Flat DB summary fields
   db_ms?: number;

@@ -142,7 +142,7 @@ describe("End-to-end integration", () => {
       await httpGet(port, "/api/error");
       await OpenTrace.flush();
 
-      const errorEntries = collector.received.filter((e) => e.exception_class === "Error");
+      const errorEntries = collector.received.filter((e) => e.error_class === "Error");
       expect(errorEntries.length).toBeGreaterThanOrEqual(1);
 
       const errEntry = errorEntries[0];

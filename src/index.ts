@@ -153,7 +153,7 @@ const OpenTrace = {
 
       const isError = err instanceof Error;
       const message = isError ? err.message : String(err);
-      const exceptionClass = isError ? err.name : "Error";
+      const errorClass = isError ? err.name : "Error";
       const stack = isError ? cleanStack(err.stack ?? "") : "";
       const causes = isError ? walkCauses(err) : [];
 
@@ -162,7 +162,7 @@ const OpenTrace = {
         kind: "error",
         ts: Date.now(),
         message,
-        exceptionClass,
+        errorClass,
         stack,
         fingerprint: "", // server computes fingerprint
         causes,

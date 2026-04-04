@@ -48,7 +48,7 @@ describe("materialize", () => {
       kind: "error",
       ts: Date.now(),
       message: "Something broke",
-      exceptionClass: "TypeError",
+      errorClass: "TypeError",
       stack: "TypeError: Something broke\n    at foo.js:10:5",
       fingerprint: "abc123def456",
       causes: [{ className: "ReferenceError", message: "x is not defined", stack: "" }],
@@ -63,7 +63,7 @@ describe("materialize", () => {
     const payload = materialize(entry, config);
 
     expect(payload.level).toBe("error");
-    expect(payload.exception_class).toBe("TypeError");
+    expect(payload.error_class).toBe("TypeError");
     expect(payload.error_fingerprint).toBe("abc123def456");
     const exception = payload.body?.exception as Record<string, unknown>;
     expect(exception).toBeDefined();
@@ -134,8 +134,7 @@ describe("materialize", () => {
     expect(payload.path).toBe("/api/users");
     expect(payload.status).toBe(200);
     expect(payload.duration_ms).toBe(150);
-    expect(payload.controller).toBe("UsersController");
-    expect(payload.action).toBe("index");
+    expect(payload.handler).toBe("UsersController#index");
     expect(payload.db_count).toBe(3);
     expect(payload.db_ms).toBe(12.5);
     expect(payload.n_plus_one).toBe(false);
