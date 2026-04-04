@@ -107,7 +107,7 @@ describe("Express middleware", () => {
     expect(collector.received.length).toBeGreaterThanOrEqual(1);
     const entry = collector.received[0] as Record<string, unknown>;
     expect(entry.message).toContain("GET /api/users 200");
-    expect(entry.level).toBe("INFO");
+    expect(entry.level).toBe("info");
     expect(entry.service).toBe("express-test");
     expect(entry.trace_id).toMatch(/^[0-9a-f]{32}$/);
     expect(entry.request_id).toBeTruthy();
@@ -129,13 +129,15 @@ describe("Express middleware", () => {
     await request(appPort, "/api/users");
     await OpenTrace.flush();
 
-    const entry = collector.received.find((e) => (e as Record<string, unknown>).request_summary) as Record<
+    const entry = collector.received.find((e) => (e as Record<string, unknown>).db_count) as Record<
       string,
       unknown
     >;
     expect(entry).toBeDefined();
-    const summary = entry.request_summary as Record<string, unknown>;
-    expect(summary.sqlQueryCount).toBe(2);
+    expect(entry.db_count).toBe(2);
+    const body = entry.body as Record<string, unknown>;
+    const perf = body.performance as Record<string, unknown>;
+    expect(perf.sql_query_count).toBe(2);
   });
 
   it("skips ignored paths", async () => {
@@ -184,7 +186,7 @@ describe("Express middleware", () => {
     await OpenTrace.flush();
 
     const entry = collector.received[0] as Record<string, unknown>;
-    expect(entry.level).toBe("ERROR");
+    expect(entry.level).toBe("error");
   });
 
   it("reports WARN level for 4xx responses", async () => {
@@ -197,7 +199,7 @@ describe("Express middleware", () => {
     await OpenTrace.flush();
 
     const entry = collector.received[0] as Record<string, unknown>;
-    expect(entry.level).toBe("WARN");
+    expect(entry.level).toBe("warn");
   });
 
   it("does nothing when disabled", async () => {

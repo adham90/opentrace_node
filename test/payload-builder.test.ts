@@ -28,18 +28,19 @@ describe("materialize", () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.timestamp).toBe("2026-01-15T12:00:00.000Z");
-    expect(payload.level).toBe("INFO");
+    expect(payload.ts).toBe("2026-01-15T12:00:00.000Z");
+    expect(payload.level).toBe("info");
     expect(payload.service).toBe("test-svc");
-    expect(payload.environment).toBe("test");
+    expect(payload.env).toBe("test");
     expect(payload.message).toBe("Hello world");
-    expect(payload.commit_hash).toBe("abc123");
+    expect(payload.version).toBe("abc123");
     expect(payload.request_id).toBe("req-1");
     expect(payload.trace_id).toBe("a".repeat(32));
     expect(payload.span_id).toBe("b".repeat(16));
-    expect(payload.metadata.user_id).toBe(42);
-    expect(payload.metadata.hostname).toBeTruthy();
-    expect(payload.metadata.pid).toBe(process.pid);
+    expect(payload.user_id).toBe("42");
+    expect(payload.body?.context).toBeDefined();
+    expect((payload.body?.context as Record<string, unknown>).hostname).toBeTruthy();
+    expect((payload.body?.context as Record<string, unknown>).pid).toBe(process.pid);
   });
 
   it("materializes an error entry", () => {
@@ -61,11 +62,13 @@ describe("materialize", () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.level).toBe("ERROR");
+    expect(payload.level).toBe("error");
     expect(payload.exception_class).toBe("TypeError");
     expect(payload.error_fingerprint).toBe("abc123def456");
-    expect(payload.metadata.stack_trace).toContain("TypeError");
-    expect(payload.metadata.exception_causes).toHaveLength(1);
+    const exception = payload.body?.exception as Record<string, unknown>;
+    expect(exception).toBeDefined();
+    expect(exception.stack).toContain("TypeError");
+    expect(exception.causes).toHaveLength(1);
   });
 
   it("materializes an event entry", () => {
@@ -86,7 +89,7 @@ describe("materialize", () => {
 
     expect(payload.event_type).toBe("deploy");
     expect(payload.message).toBe("Deployed v1.2.3");
-    expect(payload.metadata.version).toBe("1.2.3");
+    expect((payload.body?.context as Record<string, unknown>).version).toBe("1.2.3");
   });
 
   it("materializes a request entry", () => {
@@ -124,14 +127,23 @@ describe("materialize", () => {
 
     const payload = materialize(entry, config);
 
-    expect(payload.level).toBe("INFO");
+    expect(payload.level).toBe("info");
     expect(payload.message).toContain("GET /api/users 200");
-    expect(payload.request_summary?.sqlQueryCount).toBe(3);
-    expect(payload.metadata.controller).toBe("UsersController");
-    expect(payload.metadata.duration_ms).toBe(150);
+    expect(payload.event_type).toBe("http.request");
+    expect(payload.method).toBe("GET");
+    expect(payload.path).toBe("/api/users");
+    expect(payload.status).toBe(200);
+    expect(payload.duration_ms).toBe(150);
+    expect(payload.controller).toBe("UsersController");
+    expect(payload.action).toBe("index");
+    expect(payload.db_count).toBe(3);
+    expect(payload.db_ms).toBe(12.5);
+    expect(payload.n_plus_one).toBe(false);
+    expect(payload.dup_queries).toBe(0);
+    expect(payload.body?.performance).toBeDefined();
   });
 
-  it("sets ERROR level for 5xx requests", () => {
+  it("sets error level for 5xx requests", () => {
     const started = Date.now();
     const entry: DeferredRequest = {
       kind: "request",
@@ -153,10 +165,10 @@ describe("materialize", () => {
     };
 
     const payload = materialize(entry, config);
-    expect(payload.level).toBe("ERROR");
+    expect(payload.level).toBe("error");
   });
 
-  it("sets WARN level for 4xx requests", () => {
+  it("sets warn level for 4xx requests", () => {
     const started = Date.now();
     const entry: DeferredRequest = {
       kind: "request",
@@ -178,7 +190,7 @@ describe("materialize", () => {
     };
 
     const payload = materialize(entry, config);
-    expect(payload.level).toBe("WARN");
+    expect(payload.level).toBe("warn");
   });
 
   it("merges context with correct priority", () => {
@@ -205,49 +217,52 @@ describe("materialize", () => {
     const payload = materialize(entry, configWithContext);
 
     // metadata wins over request context, request context wins over config context
-    expect(payload.metadata.source).toBe("metadata");
-    expect(payload.metadata.tenant).toBe("override");
-    expect(payload.metadata.from_request).toBe(true);
+    const ctx = payload.body?.context as Record<string, unknown>;
+    expect(ctx.source).toBe("metadata");
+    expect(ctx.tenant).toBe("override");
+    expect(ctx.from_request).toBe(true);
   });
 });
 
 describe("fitPayload", () => {
   it("returns payload as-is if within size limit", () => {
     const payload: Payload = {
-      timestamp: new Date().toISOString(),
-      level: "INFO",
+      ts: new Date().toISOString(),
+      level: "info",
       service: "svc",
       message: "small",
-      metadata: {},
     };
 
     expect(fitPayload(payload, 10000)).toEqual(payload);
   });
 
-  it("removes stack_trace first", () => {
+  it("removes exception stack first", () => {
     const payload: Payload = {
-      timestamp: new Date().toISOString(),
-      level: "ERROR",
+      ts: new Date().toISOString(),
+      level: "error",
       service: "svc",
       message: "err",
-      metadata: { stack_trace: "x".repeat(5000), important: true },
+      body: {
+        exception: { class: "Error", stack: "x".repeat(5000) },
+        context: { important: true },
+      },
     };
 
     const fitted = fitPayload(payload, 200);
-    // If removing stack_trace alone isn't enough, further truncation happens
-    // But stack_trace should be gone
+    // If removing stack alone isn't enough, further truncation happens
+    // But the exception stack should be gone
     if (fitted) {
-      expect(fitted.metadata.stack_trace).toBeUndefined();
+      const ex = fitted.body?.exception as Record<string, unknown> | undefined;
+      expect(ex?.stack).toBeUndefined();
     }
   });
 
   it("returns null if payload cannot fit after all truncations", () => {
     const payload: Payload = {
-      timestamp: new Date().toISOString(),
-      level: "ERROR",
+      ts: new Date().toISOString(),
+      level: "error",
       service: "svc",
       message: "x".repeat(10000),
-      metadata: {},
     };
 
     // Very small limit that can't fit even the minimal payload

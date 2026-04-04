@@ -249,7 +249,7 @@ export class Client {
 
   private httpPost(body: Buffer | string, headers: Record<string, string>): Promise<number> {
     return new Promise((resolve, reject) => {
-      const url = new URL(`${this.config.endpoint}/api/logs`);
+      const url = new URL(`${this.config.endpoint}/api/v2/logs`);
       const isHttps = url.protocol === "https:";
       const reqFn = isHttps ? httpsRequest : httpRequest;
 

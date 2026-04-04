@@ -117,15 +117,17 @@ describe("End-to-end integration", () => {
       expect(requestEntries.length).toBeGreaterThanOrEqual(1);
 
       const reqEntry = requestEntries[0];
-      expect(reqEntry.level).toBe("INFO");
+      expect(reqEntry.level).toBe("info");
       expect(reqEntry.service).toBe("e2e-app");
-      expect(reqEntry.environment).toBe("test");
+      expect(reqEntry.env).toBe("test");
       expect(reqEntry.trace_id).toMatch(/^[0-9a-f]{32}$/);
       expect(reqEntry.request_id).toBeTruthy();
 
-      const summary = reqEntry.request_summary as Record<string, unknown>;
-      expect(summary).toBeDefined();
-      expect(summary.sqlQueryCount).toBe(2);
+      expect(reqEntry.db_count).toBe(2);
+      const body = reqEntry.body as Record<string, unknown>;
+      const perf = body.performance as Record<string, unknown>;
+      expect(perf).toBeDefined();
+      expect(perf.sql_query_count).toBe(2);
     } finally {
       server.close();
     }
@@ -144,14 +146,16 @@ describe("End-to-end integration", () => {
       expect(errorEntries.length).toBeGreaterThanOrEqual(1);
 
       const errEntry = errorEntries[0];
-      expect(errEntry.error_fingerprint).toMatch(/^[0-9a-f]{12}$/);
-      expect((errEntry.metadata as Record<string, unknown>).stack_trace).toBeTruthy();
+      // error_fingerprint is computed server-side; SDK sends empty string
+      const errBody = errEntry.body as Record<string, unknown>;
+      const exception = errBody.exception as Record<string, unknown>;
+      expect(exception.stack).toBeTruthy();
 
       const reqEntries = collector.received.filter(
         (e) => typeof e.message === "string" && e.message.includes("GET /api/error 500"),
       );
       expect(reqEntries.length).toBeGreaterThanOrEqual(1);
-      expect(reqEntries[0].level).toBe("ERROR");
+      expect(reqEntries[0].level).toBe("error");
     } finally {
       server.close();
     }
@@ -216,8 +220,9 @@ describe("End-to-end integration", () => {
     await OpenTrace.flush();
 
     const entry = collector.received[0];
-    const meta = entry.metadata as Record<string, unknown>;
-    expect(meta.tenant_id).toBe("acme");
-    expect(meta.region).toBe("us-east-1");
+    expect(entry.tenant_id).toBe("acme");
+    const body = entry.body as Record<string, unknown>;
+    const ctx = body.context as Record<string, unknown>;
+    expect(ctx.region).toBe("us-east-1");
   });
 });

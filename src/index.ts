@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { Client } from "./client.js";
 import {
   type OpenTraceConfig,
@@ -156,8 +155,6 @@ const OpenTrace = {
       const message = isError ? err.message : String(err);
       const exceptionClass = isError ? err.name : "Error";
       const stack = isError ? cleanStack(err.stack ?? "") : "";
-      const origin = extractOrigin(stack);
-      const fingerprint = computeFingerprint(exceptionClass, origin);
       const causes = isError ? walkCauses(err) : [];
 
       const ctx = getContext();
@@ -167,7 +164,7 @@ const OpenTrace = {
         message,
         exceptionClass,
         stack,
-        fingerprint,
+        fingerprint: "", // server computes fingerprint
         causes,
         metadata,
         context: resolveContext(),
@@ -358,19 +355,6 @@ function cleanStack(stack: string): string {
     .join("\n");
 }
 
-function extractOrigin(stack: string): string {
-  if (!stack) return "";
-  const lines = stack.split("\n");
-  for (const line of lines) {
-    const match = line.match(/at\s+.*?\((.+?):\d+:\d+\)/) ?? line.match(/at\s+(.+?):\d+:\d+/);
-    if (match) return match[1];
-  }
-  return "";
-}
-
-function computeFingerprint(exceptionClass: string, origin: string): string {
-  return createHash("md5").update(`${exceptionClass}||${origin}`).digest("hex").slice(0, 12);
-}
 
 const MAX_CAUSE_DEPTH = 5;
 

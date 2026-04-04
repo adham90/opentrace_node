@@ -93,19 +93,42 @@ export interface DeferredRequest {
 export type DeferredEntry = DeferredLog | DeferredError | DeferredEvent | DeferredRequest;
 
 export interface Payload {
-  timestamp: string;
+  ts: string;
   level: string;
   service: string;
-  environment?: string;
+  env?: string;
+  version?: string;
   message: string;
-  metadata: Record<string, unknown>;
-  commit_hash?: string;
-  request_id?: string;
+
+  // Trace & identity
   trace_id?: string;
   span_id?: string;
   parent_span_id?: string;
+  request_id?: string;
+  user_id?: string;
+  tenant_id?: string;
+  session_id?: string;
+
+  // Classification
+  event_type?: string;
   exception_class?: string;
   error_fingerprint?: string;
-  event_type?: string;
-  request_summary?: RequestSummary;
+
+  // Flat request fields
+  method?: string;
+  path?: string;
+  status?: number;
+  duration_ms?: number;
+  controller?: string;
+  action?: string;
+
+  // Flat DB summary fields
+  db_ms?: number;
+  db_count?: number;
+  n_plus_one?: boolean;
+  slow_queries?: number;
+  dup_queries?: number;
+
+  // Structured body bucket
+  body?: Record<string, unknown>;
 }

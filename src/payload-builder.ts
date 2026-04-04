@@ -15,29 +15,75 @@ export function materialize(entry: DeferredEntry, config: ResolvedConfig): Paylo
 }
 
 function materializeLog(entry: DeferredEntry & { kind: "log" }, config: ResolvedConfig): Payload {
-  const metadata = mergeContext(entry.metadata, entry.context, config);
-  const payload = buildBase(entry.ts, entry.level.toUpperCase(), entry.message, metadata, config);
-  assignTraceFields(payload, entry);
+  const merged = mergeContext(entry.metadata, entry.context, config);
+
+  // Promote known identity fields from metadata to top-level
+  const { user_id, tenant_id, session_id, ...rest } = merged;
+
+  const payload = buildBase(entry.ts, entry.level.toLowerCase(), entry.message, config);
+  if (user_id !== undefined) payload.user_id = String(user_id);
+  if (tenant_id !== undefined) payload.tenant_id = String(tenant_id);
+  if (session_id !== undefined) payload.session_id = String(session_id);
+  if (entry.requestId) payload.request_id = entry.requestId;
+  if (entry.traceId) payload.trace_id = entry.traceId;
+  if (entry.spanId) payload.span_id = entry.spanId;
+  if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
+
+  // Everything else goes into body.context
+  if (Object.keys(rest).length > 0) {
+    payload.body = { context: rest };
+  }
+
   return payload;
 }
 
 function materializeError(entry: DeferredEntry & { kind: "error" }, config: ResolvedConfig): Payload {
-  const metadata = mergeContext(entry.metadata, entry.context, config);
-  if (entry.stack) metadata.stack_trace = entry.stack;
-  if (entry.causes.length > 0) metadata.exception_causes = entry.causes;
+  const merged = mergeContext(entry.metadata, entry.context, config);
+  const { user_id, tenant_id, session_id, ...rest } = merged;
 
-  const payload = buildBase(entry.ts, "ERROR", entry.message, metadata, config);
+  const payload = buildBase(entry.ts, "error", entry.message, config);
   payload.exception_class = entry.exceptionClass;
-  payload.error_fingerprint = entry.fingerprint;
-  assignTraceFields(payload, entry);
+  if (entry.fingerprint) payload.error_fingerprint = entry.fingerprint;
+  if (user_id !== undefined) payload.user_id = String(user_id);
+  if (tenant_id !== undefined) payload.tenant_id = String(tenant_id);
+  if (session_id !== undefined) payload.session_id = String(session_id);
+  if (entry.requestId) payload.request_id = entry.requestId;
+  if (entry.traceId) payload.trace_id = entry.traceId;
+  if (entry.spanId) payload.span_id = entry.spanId;
+  if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
+
+  const body: Record<string, unknown> = {};
+  const exception: Record<string, unknown> = { class: entry.exceptionClass };
+  if (entry.stack) exception.stack = entry.stack;
+  if (entry.causes.length > 0) exception.causes = entry.causes;
+  body.exception = exception;
+
+  if (Object.keys(rest).length > 0) {
+    body.context = rest;
+  }
+
+  payload.body = body;
   return payload;
 }
 
 function materializeEvent(entry: DeferredEntry & { kind: "event" }, config: ResolvedConfig): Payload {
-  const metadata = mergeContext(entry.metadata, entry.context, config);
-  const payload = buildBase(entry.ts, "INFO", entry.message, metadata, config);
+  const merged = mergeContext(entry.metadata, entry.context, config);
+  const { user_id, tenant_id, session_id, ...rest } = merged;
+
+  const payload = buildBase(entry.ts, "info", entry.message, config);
   payload.event_type = entry.eventType;
-  assignTraceFields(payload, entry);
+  if (user_id !== undefined) payload.user_id = String(user_id);
+  if (tenant_id !== undefined) payload.tenant_id = String(tenant_id);
+  if (session_id !== undefined) payload.session_id = String(session_id);
+  if (entry.requestId) payload.request_id = entry.requestId;
+  if (entry.traceId) payload.trace_id = entry.traceId;
+  if (entry.spanId) payload.span_id = entry.spanId;
+  if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
+
+  if (Object.keys(rest).length > 0) {
+    payload.body = { context: rest };
+  }
+
   return payload;
 }
 
@@ -46,30 +92,80 @@ function materializeRequest(entry: DeferredRequest, config: ResolvedConfig): Pay
   const level = requestLevel(entry.status, entry.error);
   const message = `${entry.method} ${entry.path} ${entry.status} ${Math.round(durationMs)}ms`;
 
-  const metadata: Record<string, unknown> = {
-    ...entry.extra,
-    method: entry.method,
-    path: entry.path,
-    status: entry.status,
-    duration_ms: Math.round(durationMs * 100) / 100,
-  };
-  if (entry.controller) metadata.controller = entry.controller;
-  if (entry.action) metadata.action = entry.action;
+  const payload = buildBase(entry.started, level, message, config);
+  payload.event_type = "http.request";
 
-  const merged = mergeContext(metadata, entry.context, config);
-  const payload = buildBase(entry.started, level, message, merged, config);
+  // Flat request fields
+  payload.method = entry.method;
+  payload.path = entry.path;
+  payload.status = entry.status;
+  payload.duration_ms = Math.round(durationMs * 100) / 100;
+  if (entry.controller) payload.controller = entry.controller;
+  if (entry.action) payload.action = entry.action;
+
+  // Trace fields
+  if (entry.requestId) payload.request_id = entry.requestId;
+  if (entry.traceId) payload.trace_id = entry.traceId;
+  if (entry.spanId) payload.span_id = entry.spanId;
+  if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
+
+  // Flat DB summary fields from request summary
+  if (entry.summary) {
+    payload.db_ms = entry.summary.sqlTotalMs;
+    payload.db_count = entry.summary.sqlQueryCount;
+    payload.n_plus_one = entry.summary.nPlusOneWarning;
+    payload.dup_queries = entry.summary.duplicateQueries;
+    // slow_queries: count queries slower than a reasonable threshold (>100ms)
+    payload.slow_queries = entry.summary.sqlSlowestMs > 100 ? 1 : 0;
+  }
+
+  // Merge context and extra, promote identity fields
+  const merged = mergeContext(entry.extra, entry.context, config);
+  const { user_id, tenant_id, session_id, ...rest } = merged;
+  if (user_id !== undefined) payload.user_id = String(user_id);
+  if (tenant_id !== undefined) payload.tenant_id = String(tenant_id);
+  if (session_id !== undefined) payload.session_id = String(session_id);
+
+  // Build body with structured sub-objects
+  const body: Record<string, unknown> = {};
+
+  if (Object.keys(rest).length > 0) {
+    body.context = rest;
+  }
 
   if (entry.summary) {
-    payload.request_summary = entry.summary;
+    body.performance = {
+      sql_query_count: entry.summary.sqlQueryCount,
+      sql_total_ms: entry.summary.sqlTotalMs,
+      sql_slowest_ms: entry.summary.sqlSlowestMs,
+      sql_slowest_name: entry.summary.sqlSlowestName,
+      n_plus_one_warning: entry.summary.nPlusOneWarning,
+      duplicate_queries: entry.summary.duplicateQueries,
+      worst_duplicate_count: entry.summary.worstDuplicateCount,
+      http_count: entry.summary.httpCount,
+      http_total_ms: entry.summary.httpTotalMs,
+      http_slowest_ms: entry.summary.httpSlowestMs,
+      http_slowest_host: entry.summary.httpSlowestHost,
+    };
+    if (entry.summary.timeline) {
+      body.timeline = entry.summary.timeline;
+    }
   }
 
   if (entry.error) {
     payload.exception_class = entry.error.className;
-    payload.error_fingerprint = entry.error.fingerprint;
-    merged.stack_trace = entry.error.stack;
+    body.exception = {
+      class: entry.error.className,
+      message: entry.error.message,
+      stack: entry.error.stack,
+      fingerprint: entry.error.fingerprint,
+    };
   }
 
-  assignTraceFields(payload, entry);
+  if (Object.keys(body).length > 0) {
+    payload.body = body;
+  }
+
   return payload;
 }
 
@@ -77,22 +173,17 @@ function buildBase(
   ts: number,
   level: string,
   message: string,
-  metadata: Record<string, unknown>,
   config: ResolvedConfig,
 ): Payload {
-  metadata.hostname = config.hostname;
-  metadata.pid = config.pid;
-
   const payload: Payload = {
-    timestamp: new Date(ts).toISOString(),
+    ts: new Date(ts).toISOString(),
     level,
     service: config.service,
     message,
-    metadata,
   };
 
-  if (config.environment) payload.environment = config.environment;
-  if (config.gitSha) payload.commit_hash = config.gitSha;
+  if (config.environment) payload.env = config.environment;
+  if (config.gitSha) payload.version = config.gitSha;
 
   return payload;
 }
@@ -116,24 +207,18 @@ function mergeContext(
   // Entry metadata (highest priority)
   Object.assign(result, metadata);
 
+  // Always include hostname and pid
+  result.hostname = config.hostname;
+  result.pid = config.pid;
+
   return result;
 }
 
-function assignTraceFields(
-  payload: Payload,
-  entry: { requestId: string | null; traceId: string | null; spanId: string | null; parentSpanId: string | null },
-): void {
-  if (entry.requestId) payload.request_id = entry.requestId;
-  if (entry.traceId) payload.trace_id = entry.traceId;
-  if (entry.spanId) payload.span_id = entry.spanId;
-  if (entry.parentSpanId) payload.parent_span_id = entry.parentSpanId;
-}
-
 function requestLevel(status: number, error: unknown): string {
-  if (error) return "ERROR";
-  if (status >= 500) return "ERROR";
-  if (status >= 400) return "WARN";
-  return "INFO";
+  if (error) return "error";
+  if (status >= 500) return "error";
+  if (status >= 400) return "warn";
+  return "info";
 }
 
 function safeCall<T>(fn: () => T): T | null {
@@ -149,29 +234,42 @@ const MAX_PAYLOAD_TRUNCATION_STEPS = 6;
 export function fitPayload(payload: Payload, maxBytes: number): Payload | null {
   if (jsonSize(payload) <= maxBytes) return payload;
 
-  const p = { ...payload, metadata: { ...payload.metadata } };
+  const p = { ...payload, body: payload.body ? { ...payload.body } : undefined };
 
   const steps: (() => void)[] = [
     () => {
-      p.metadata.stack_trace = undefined;
+      if (p.body?.exception && typeof p.body.exception === "object") {
+        const ex = p.body.exception as Record<string, unknown>;
+        ex.stack = undefined;
+      }
     },
     () => {
-      p.metadata.params = undefined;
+      if (p.body?.context && typeof p.body.context === "object") {
+        const ctx = p.body.context as Record<string, unknown>;
+        ctx.params = undefined;
+      }
     },
     () => {
-      p.metadata.job_arguments = undefined;
+      if (p.body?.context && typeof p.body.context === "object") {
+        const ctx = p.body.context as Record<string, unknown>;
+        ctx.job_arguments = undefined;
+      }
     },
     () => {
-      if (typeof p.metadata.sql === "string") p.metadata.sql = p.metadata.sql.slice(0, 200);
+      if (p.body?.context && typeof p.body.context === "object") {
+        const ctx = p.body.context as Record<string, unknown>;
+        if (typeof ctx.sql === "string") ctx.sql = ctx.sql.slice(0, 200);
+      }
     },
     () => {
-      if (typeof p.metadata.exception_message === "string")
-        p.metadata.exception_message = p.metadata.exception_message.slice(0, 200);
+      if (p.body?.exception && typeof p.body.exception === "object") {
+        const ex = p.body.exception as Record<string, unknown>;
+        if (typeof ex.message === "string") ex.message = ex.message.slice(0, 200);
+      }
     },
     () => {
-      if (p.request_summary) {
-        p.request_summary = { ...p.request_summary };
-        p.request_summary.timeline = undefined;
+      if (p.body) {
+        p.body.timeline = undefined;
       }
     },
   ];
@@ -181,7 +279,7 @@ export function fitPayload(payload: Payload, maxBytes: number): Payload | null {
     if (jsonSize(p) <= maxBytes) return p;
   }
 
-  // Still too large — drop
+  // Still too large -- drop
   return null;
 }
 

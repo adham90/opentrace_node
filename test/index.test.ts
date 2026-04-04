@@ -87,10 +87,10 @@ describe("OpenTrace", () => {
 
       expect(server.received).toHaveLength(1);
       const entry = server.received[0] as Record<string, unknown>;
-      expect(entry.level).toBe("INFO");
+      expect(entry.level).toBe("info");
       expect(entry.message).toBe("Hello from test");
       expect(entry.service).toBe("test-app");
-      expect((entry.metadata as Record<string, unknown>).user_id).toBe(42);
+      expect(entry.user_id).toBe("42");
     });
 
     it("filters by minLevel", async () => {
@@ -138,12 +138,13 @@ describe("OpenTrace", () => {
 
       expect(server.received).toHaveLength(1);
       const entry = server.received[0] as Record<string, unknown>;
-      expect(entry.level).toBe("ERROR");
+      expect(entry.level).toBe("error");
       expect(entry.exception_class).toBe("Error");
-      expect(entry.error_fingerprint).toMatch(/^[0-9a-f]{12}$/);
-      const meta = entry.metadata as Record<string, unknown>;
-      expect(meta.stack_trace).toBeTruthy();
-      expect(meta.exception_causes).toHaveLength(1);
+      // error_fingerprint is computed server-side; SDK sends empty string
+      const body = entry.body as Record<string, unknown>;
+      const exception = body.exception as Record<string, unknown>;
+      expect(exception.stack).toBeTruthy();
+      expect(exception.causes).toHaveLength(1);
     });
 
     it("handles string errors", async () => {
@@ -154,6 +155,7 @@ describe("OpenTrace", () => {
       const entry = server.received[0] as Record<string, unknown>;
       expect(entry.message).toBe("something went wrong");
       expect(entry.exception_class).toBe("Error");
+      expect(entry.level).toBe("error");
     });
   });
 
@@ -176,8 +178,8 @@ describe("OpenTrace", () => {
       OpenTrace.info("with context");
       await OpenTrace.flush();
 
-      const meta = (server.received[0] as Record<string, unknown>).metadata as Record<string, unknown>;
-      expect(meta.tenant_id).toBe("acme");
+      const entry = server.received[0] as Record<string, unknown>;
+      expect(entry.tenant_id).toBe("acme");
     });
 
     it("merges context incrementally", async () => {
@@ -187,9 +189,11 @@ describe("OpenTrace", () => {
       OpenTrace.info("merged");
       await OpenTrace.flush();
 
-      const meta = (server.received[0] as Record<string, unknown>).metadata as Record<string, unknown>;
-      expect(meta.a).toBe(1);
-      expect(meta.b).toBe(2);
+      const entry = server.received[0] as Record<string, unknown>;
+      const body = entry.body as Record<string, unknown>;
+      const ctx = body.context as Record<string, unknown>;
+      expect(ctx.a).toBe(1);
+      expect(ctx.b).toBe(2);
     });
   });
 
