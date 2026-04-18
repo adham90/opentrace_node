@@ -1,6 +1,6 @@
 {
   "name": "@opentrace-sdk/node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenTrace Node.js client — async structured log forwarding",
   "type": "module",
   "main": "./dist/index.cjs",
