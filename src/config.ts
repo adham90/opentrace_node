@@ -122,7 +122,13 @@ export function resolveConfig(input: OpenTraceConfig): ResolvedConfig {
     endpoint: input.endpoint.replace(/\/+$/, ""),
     apiKey: input.apiKey,
     service: input.service,
-    environment: input.environment ?? "",
+    // Environment fallback chain:
+    //   1. input.environment (explicit config)
+    //   2. OPENTRACE_ENV — the canonical opentrace env var
+    //   3. NODE_ENV — framework default
+    // Empty string means "no env set" — the server stamps it with
+    // OPENTRACE_DEFAULT_ENV at ingest time so multi-env filters still match.
+    environment: input.environment ?? process.env.OPENTRACE_ENV ?? process.env.NODE_ENV ?? "",
     hostname: input.hostname ?? hostname(),
     pid: process.pid,
     gitSha: input.gitSha ?? process.env.REVISION ?? process.env.GIT_SHA ?? process.env.HEROKU_SLUG_COMMIT ?? "",

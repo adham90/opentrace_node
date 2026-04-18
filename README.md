@@ -63,7 +63,9 @@ OpenTrace.init({
   endpoint: 'https://your-opentrace-server.com',
   apiKey: 'your-api-key',
   service: 'my-app',
-  environment: 'production',
+  // environment defaults to OPENTRACE_ENV ?? NODE_ENV, so most apps
+  // can omit it. Override explicitly when your NODE_ENV doesn't match
+  // the deploy environment OpenTrace should see.
 });
 
 // Structured logging
@@ -154,8 +156,8 @@ OpenTrace.init({
   apiKey: 'your-api-key',
   service: 'my-app',
 
-  // Environment
-  environment: 'production',        // default: ''
+  // Environment — auto-resolved from OPENTRACE_ENV ?? NODE_ENV ?? ''
+  environment: 'production',        // set explicitly only when needed
   hostname: os.hostname(),           // auto-detected
   gitSha: process.env.GIT_SHA,       // auto-detected from REVISION/GIT_SHA/HEROKU_SLUG_COMMIT
 

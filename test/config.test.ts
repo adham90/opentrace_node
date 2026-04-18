@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { clearLevelCache, isLevelEnabled, resolveConfig, validateConfig } from "../src/config.js";
 import type { ResolvedConfig } from "../src/config.js";
 
@@ -70,6 +70,55 @@ describe("resolveConfig", () => {
     } else {
       process.env.REVISION = original;
     }
+  });
+
+  describe("environment fallback chain", () => {
+    // Preserve/restore the env vars the resolver reads so tests are
+    // deterministic regardless of the surrounding shell.
+    const savedOpentraceEnv = process.env.OPENTRACE_ENV;
+    const savedNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      if (savedOpentraceEnv === undefined) delete process.env.OPENTRACE_ENV;
+      else process.env.OPENTRACE_ENV = savedOpentraceEnv;
+      if (savedNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = savedNodeEnv;
+    });
+
+    it("prefers explicit environment over env vars", () => {
+      process.env.OPENTRACE_ENV = "production";
+      process.env.NODE_ENV = "test";
+      const config = resolveConfig({ ...minimal, environment: "staging" });
+      expect(config.environment).toBe("staging");
+    });
+
+    it("falls back to OPENTRACE_ENV when environment is unset", () => {
+      process.env.OPENTRACE_ENV = "production";
+      delete process.env.NODE_ENV;
+      const config = resolveConfig(minimal);
+      expect(config.environment).toBe("production");
+    });
+
+    it("prefers OPENTRACE_ENV over NODE_ENV", () => {
+      process.env.OPENTRACE_ENV = "production";
+      process.env.NODE_ENV = "development";
+      const config = resolveConfig(minimal);
+      expect(config.environment).toBe("production");
+    });
+
+    it("falls back to NODE_ENV when OPENTRACE_ENV is unset", () => {
+      delete process.env.OPENTRACE_ENV;
+      process.env.NODE_ENV = "development";
+      const config = resolveConfig(minimal);
+      expect(config.environment).toBe("development");
+    });
+
+    it("resolves to empty string when no env var is set", () => {
+      delete process.env.OPENTRACE_ENV;
+      delete process.env.NODE_ENV;
+      const config = resolveConfig(minimal);
+      expect(config.environment).toBe("");
+    });
   });
 });
 
